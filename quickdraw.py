@@ -60,14 +60,16 @@ class QuickDraw(Dataset):
 
         for i_stroke in range(n_strokes):
             stroke = np.array(qd_sketch[i_stroke], dtype=self.dtype).T
-            if self.normalize_xy:
-                norm_factor = np.sqrt((stroke**2).sum(1)).max()
-                stroke = stroke / (norm_factor + np.finfo(self.dtype).eps)
+
             # The pen states. Only the one at the end of stroke has 1, rest 0
             p = np.zeros((stroke.shape[0], 1), dtype=self.dtype); p[-1, 0] = 1.
             
             # stack up strokes to make sketch
             sketch = np.vstack((sketch, np.hstack((stroke, p))))
+
+        if self.normalize_xy:
+            norm_factor = np.sqrt((sketch[:,:2]**2).sum(1)).max()
+            sketch[:,:2] = sketch[:,:2] / (norm_factor + np.finfo(self.dtype).eps)
 
         return sketch, c_id
 
