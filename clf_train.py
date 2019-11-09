@@ -9,7 +9,7 @@ def main( args ):
     qdstrain, qdstest = qd.split(0.8)
     qdltrain, qdltest = qdstrain.get_dataloader(args.batch_size), qdstest.get_dataloader(args.batch_size)
 
-    model = RNNSketchClassifier(3, args.hidden, args.layers, n_classes=len(chosen_classes))
+    model = RNNSketchClassifier(3, args.hidden, args.layers, n_classes=len(chosen_classes), dropout=args.dropout)
     if torch.cuda.is_available():
         model = model.cuda()
 
@@ -64,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('-d', '--hidden', type=int, required=False, default=256, help='no. of hidden neurons')
     parser.add_argument('-l', '--layers', type=int, required=False, default=2, help='no of layers in RNN')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=500, help='no of epochs')
+    parser.add_argument('--dropout', type=float, required=False, default=0.5, help='dropout probability')
     parser.add_argument('-i', '--print_interval', type=int, required=False, default=100, help='loss printing interval')
     args = parser.parse_args()
 

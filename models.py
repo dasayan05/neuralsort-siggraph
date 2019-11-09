@@ -3,7 +3,7 @@ import torch.nn as nn
 import pdb
 
 class RNNSketchEncoder(nn.Module):
-    def __init__(self, n_input, n_hidden, n_layer, dtype=torch.float32, bidirectional=True):
+    def __init__(self, n_input, n_hidden, n_layer, dtype=torch.float32, bidirectional=True, dropout=0.5):
         super().__init__()
 
         # Track parameters
@@ -11,8 +11,9 @@ class RNNSketchEncoder(nn.Module):
         self.n_layer = n_layer
         self.dtype = dtype
         self.bidirectional = 2 if bidirectional else 1
+        self.dropout = dropout
 
-        self.cell = nn.GRU(self.n_input, self.n_hidden, self.n_layer, bidirectional=bidirectional)
+        self.cell = nn.GRU(self.n_input, self.n_hidden, self.n_layer, bidirectional=bidirectional, dropout=self.dropout)
 
     def forward(self, x):
         # Initial hidden state
@@ -26,15 +27,16 @@ class RNNSketchEncoder(nn.Module):
         return torch.cat((h_final[-1, 0, :], h_final[-1, 1, :]), 1)
 
 class RNNSketchClassifier(nn.Module):
-    def __init__(self, n_input, n_embedding, n_layer, n_classes, dtype=torch.float32):
+    def __init__(self, n_input, n_embedding, n_layer, n_classes, dtype=torch.float32, dropout=0.5):
         super().__init__()
 
         # Track parameters
         self.n_embedding = n_embedding
         self.n_classes = n_classes
         self.dtype = dtype
+        self.dropout = dropout
 
-        self.sketchenc = RNNSketchEncoder(n_input, self.n_embedding, n_layer, dtype=self.dtype)
+        self.sketchenc = RNNSketchEncoder(n_input, self.n_embedding, n_layer, dtype=self.dtype, dropout=self.dropout)
         self.classifier = nn.Sequential(
             nn.Linear(self.n_embedding * self.sketchenc.bidirectional, 128),
             nn.ReLU(),
