@@ -184,6 +184,21 @@ def main( args ):
     plt.plot(loss_record)
     plt.show()
 
+    with torch.no_grad():
+        for i, (X, Y) in enumerate(test_dl):
+            if cuda:
+                X, Y = X.cuda(), Y.cuda()
+            
+            x = torch.einsum('nd,dij->nij', X, mask_tensor)
+            h = torch.cat([x, x.sum(dim=1, keepdim=True).repeat(1, seq_len, 1)], dim=-1)
+            s = score(h)
+
+        for i in [0, 10, 34]:
+            plt.matshow(s[i].cpu().numpy().reshape(3,3))
+            plt.title(str(Y[i].cpu().item()))
+            plt.colorbar()
+            plt.show()
+
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
@@ -196,45 +211,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main( args )
-
-
-# In[15]:
-
-
-# # Testing
-# x = images[np.arange(1,300,2)]
-# x = np.einsum('nd,dij->nij', x, mask_tensor)
-# x = torch.tensor(x.astype(np.float32))
-
-# y = torch.tensor(labels[rnd_idx].astype(np.int64)).unsqueeze(1).repeat(1,9).view(-1)
-
-# h = torch.cat([x, x.sum(dim=1, keepdim=True).repeat(1,9,1)], dim=-1)
-# s = score_func(h)
-
-
-# # In[16]:
-
-
-# s = s.detach().cpu().numpy()
-
-# fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-# ax1.matshow(base1.reshape(3,3))
-# ax2.matshow(s_[0].reshape(3,3))
-# ax3.matshow(s[0].reshape(3,3))
-
-
-# fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-# ax1.matshow(base2.reshape(3,3))
-# ax2.matshow(s_[50].reshape(3,3))
-# ax3.matshow(s[50].reshape(3,3))
-
-# fig, (ax1, ax2, ax3) = plt.subplots(1,3)
-# ax1.matshow(base3.reshape(3,3))
-# ax2.matshow(s_[100].reshape(3,3))
-# ax3.matshow(s[100].reshape(3,3))
-
-# In[ ]:
-
-
-
-
