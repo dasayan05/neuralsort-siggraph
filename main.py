@@ -139,7 +139,7 @@ def main( args ):
         mask_tensor[i,i,i] = 1
 
     whole_dl = DataLoader(dataset, batch_size=args.batch_size, shuffle=True, pin_memory=True)
-    
+
     loss_func = nn.CrossEntropyLoss()
     loss_record = []
 
@@ -149,21 +149,16 @@ def main( args ):
                 X, Y = X.cuda(), Y.cuda()
             
             batch_size = X.shape[0]
-            # pdb.set_trace()
             x = torch.einsum('nd,dij->nij', X, mask_tensor)
-            # x = torch.tensor(x.astype(np.float32))
-            # pdb.set_trace()
 
             y = Y.unsqueeze(1).repeat(1, seq_len).view(-1)
 
             h = torch.cat([x, x.sum(dim=1, keepdim=True).repeat(1, seq_len, 1)], dim=-1)
             s = score(h)
-            # pdb.set_trace()
 
             p_relaxed = stochastic_neural_sort(s, 1 / (1 + e**0.5))
 
             p_discrete = torch.zeros((batch_size, seq_len, seq_len), dtype=dtype, device=device)
-            # pdb.set_trace()
             p_discrete[torch.arange(batch_size, device=device).view(-1, 1).repeat(1, seq_len),
                        torch.arange(seq_len, device=device).view(1, -1).repeat(batch_size, 1),
                        torch.argmax(p_relaxed, dim=-1)] = 1
