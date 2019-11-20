@@ -150,10 +150,8 @@ def main( args ):
             
             batch_size = X.shape[0]
             x = torch.einsum('nd,dij->nij', X, mask_tensor)
-
-            y = Y.unsqueeze(1).repeat(1, seq_len).view(-1)
-
             h = torch.cat([x, x.sum(dim=1, keepdim=True).repeat(1, seq_len, 1)], dim=-1)
+
             s = score(h)
 
             p_relaxed = stochastic_neural_sort(s, 1 / (1 + e**0.5))
@@ -162,7 +160,6 @@ def main( args ):
             p_discrete[torch.arange(batch_size, device=device).view(-1, 1).repeat(1, seq_len),
                        torch.arange(seq_len, device=device).view(1, -1).repeat(batch_size, 1),
                        torch.argmax(p_relaxed, dim=-1)] = 1
-
             # permutation matrix
             p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
             
@@ -171,6 +168,7 @@ def main( args ):
 
             out = classifier.classifier(masked_input)
 
+            y = Y.unsqueeze(1).repeat(1, seq_len).flatten()
             loss = loss_func(out.view(-1, n_classes), y)
 
             optim.zero_grad()
