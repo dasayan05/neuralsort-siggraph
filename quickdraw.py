@@ -6,7 +6,8 @@ from utils import unpack_drawing, struct
 
 class QuickDraw(Dataset):
     def __init__(self, root, categories=[], max_samples=80000, normalize_xy=True, dtype=np.float32, verbose=False,
-            *, cache=None # not to be used
+            *, cache=None, # not to be used
+            filter_func=None # subset sketches based on a function
         ):
         super().__init__()
 
@@ -23,6 +24,10 @@ class QuickDraw(Dataset):
         self.dtype = dtype
         self.verbose = verbose
         self.max_samples = max_samples
+        if filter_func == None:
+            self.filter_func = lambda sk: (True, sk) # passes every sketch
+        else:
+            self.filter_func = filter_func
 
         # The cached data
         if cache != None:
@@ -35,8 +40,19 @@ class QuickDraw(Dataset):
                 with open(bin_file_path, 'rb') as file:
                     while True:
                         try:
-                            drawing = unpack_drawing(file)
-                            self.cache.append((drawing['image'], cat_idx))
+                            drawing = unpack_drawing(file)['image']
+                            
+                            # Passes all sketches through 'filter_func'. It returns either
+                            # (True, modified_sketch) OR (False, <anything>). If the first return
+                            # object is True, it adds the 'modified_sketch' into cache. If False,
+                            # it just skips that sample (the 2nd argument is useless then).
+                            filter_check, _drawing = self.filter_func(drawing)
+                            if filter_check:
+                                drawing = _drawing
+                            else:
+                                continue
+                            
+                            self.cache.append((drawing, cat_idx))
                             n_samples += 1
                             if n_samples >= max_samples:
                                 break
