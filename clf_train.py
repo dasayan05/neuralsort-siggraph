@@ -1,6 +1,6 @@
 import torch
 
-from quickdraw import QuickDraw
+from quickdraw.quickdraw import QuickDraw
 from models import RNNSketchClassifier
 
 def main( args ):
