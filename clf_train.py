@@ -5,7 +5,7 @@ from models import RNNSketchClassifier
 
 def main( args ):
     chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, chosen_classes, max_samples=25000, verbose=True,
+    qd = QuickDraw(args.root, categories=chosen_classes, max_samples=25000, verbose=True,
                     filter_func=lambda x: (True, x))
     qdstrain, qdstest = qd.split(0.8)
     qdltrain, qdltest = qdstrain.get_dataloader(args.batch_size), qdstest.get_dataloader(args.batch_size)
