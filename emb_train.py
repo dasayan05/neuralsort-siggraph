@@ -5,8 +5,8 @@ from models import RNNSketchClassifier
 
 def main( args ):
     chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, categories=chosen_classes, max_samples=25000, verbose=True,
-                    filter_func=lambda x: (True, x))
+    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=15000, verbose=True,
+                    start_from_zero=True, mode=QuickDraw.SKETCH, problem=QuickDraw.FULLSEQ)
     qdstrain, qdstest = qd.split(0.8)
     qdltrain, qdltest = qdstrain.get_dataloader(args.batch_size), qdstest.get_dataloader(args.batch_size)
 
@@ -61,7 +61,7 @@ if __name__ == '__main__':
     parser.add_argument('--root', type=str, required=True, help='QuickDraw folder path (containing .bin files)')
     parser.add_argument('-b','--batch_size', type=int, required=False, default=32, help='batch size')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='learning rate')
-    parser.add_argument('-m', '--modelfile', type=str, required=False, default='sketchclf.pth', help='model file name')
+    parser.add_argument('-m', '--modelfile', type=str, required=False, default='sketchemb.pth', help='model file name')
     parser.add_argument('-d', '--hidden', type=int, required=False, default=256, help='no. of hidden neurons')
     parser.add_argument('-l', '--layers', type=int, required=False, default=2, help='no of layers in RNN')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=500, help='no of epochs')
