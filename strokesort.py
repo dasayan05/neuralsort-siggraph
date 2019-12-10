@@ -1,8 +1,19 @@
-import torch
+import torch, os, numpy as np
+import matplotlib.pyplot as plt
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
+from torch.utils import tensorboard as tb
 
 from quickdraw.quickdraw import QuickDraw
-from models import RNNSketchClassifier, Embedder, ScoreFunction
+from models import Embedder, ScoreFunction
+from sketchanet import SketchANet
+from train_sketchanet import rasterize
+
+def prerender_stroke(stroke_list, fig):
+    R = []
+    for stroke in stroke_list:
+        stroke = [stroke,]
+        R.append( torch.tensor(rasterize(stroke, fig)).unsqueeze(0) )
+    return torch.stack(R, 0)
 
 def accept_fstrokes(s, f):
     if len(s) != f:
@@ -42,14 +53,17 @@ def stochastic_neural_sort(s, tau):
 
 def main( args ):
     chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=15000, verbose=True,
+    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=1000, verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
     qdl = qd.get_dataloader(args.batch_size)
+
+    writer = tb.SummaryWriter(os.path.join(args.base, 'logs'))
     
-    sketchclf = RNNSketchClassifier(3, args.embdim // 2, args.emblayer, n_classes=len(chosen_classes))
-    with open(args.embmodel, 'rb') as f:
-        sketchclf.load_state_dict(torch.load(f))
-    # sketchclf.eval() # freeze this module
+    sketchclf = SketchANet(len(chosen_classes))
+    if os.path.exists(os.path.join(args.base, args.embmodel)):
+        sketchclf.load_state_dict(torch.load(os.path.join(args.base, args.embmodel)))
+    else:
+        raise 'args.embmodel not found'
 
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -66,52 +80,43 @@ def main( args ):
 
     # optimizer
     optim = torch.optim.Adam(score.parameters(), lr=args.lr)
+    fig = plt.figure(frameon=False, figsize=(2.25, 2.25))
+
+    count = 0
 
     for e in range(args.epochs):
         for iteration, B in enumerate(qdl):
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 
-                stroke_list = [torch.tensor(stroke, device=device) for stroke in stroke_list]
-                stroke_lens = torch.tensor([stroke.shape[0] for stroke in stroke_list], device=device)
-                n_strokes = len(stroke_lens)
+                raster_strokes = prerender_stroke(stroke_list, fig)
+                if torch.cuda.is_available():
+                    raster_strokes = raster_strokes.cuda()
 
-                padded_strokes = pad_sequence(stroke_list, batch_first=True)
-                
-                embedder = Embedder(sketchclf.sketchenc, stroke_list, device=device)
+                embedder = Embedder(sketchclf, raster_strokes, device=device)
                 aug = embedder.get_aug_embeddings()
 
                 scores = score(aug)
                 
                 p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
-                p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
-                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
-                       torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
+                p_discrete = torch.zeros((1, args.n_strokes, args.n_strokes), dtype=torch.float32, device=device)
+                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, args.n_strokes),
+                       torch.arange(args.n_strokes, device=device).view(1, -1).repeat(1, 1),
                        torch.argmax(p_relaxed, dim=-1)] = 1
                 
                 # permutation matrix
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
+                p = p.squeeze()
 
-                reord_strokes = torch.einsum('ab,bij->aij', p.squeeze(), padded_strokes)
-                reord_lens = torch.matmul(p.squeeze(), stroke_lens.float())
+                perms = []
+                for i in range(1, args.n_strokes + 1):
+                    p_ = p[:i]
+                    perms.append( embedder.sandwitch(perm=p_) )
 
-                preds = []
-                for i in range(1, n_strokes + 1):
-                    first_i_strokes = reord_strokes[:i,...]
-                    first_i_lens = reord_lens[:i]
-                    first_i_sketch = []
-                    total_len = torch.zeros((1,), device=device)
-                    for stroke_j, len_j in zip(first_i_strokes, first_i_lens):
-                        first_i_sketch.append( stroke_j[:int(len_j), ...] )
-                        total_len += int(len_j)
-                    partial_sketch = torch.cat(first_i_sketch, dim=0)
-                    partial_sketch = pack_padded_sequence(partial_sketch.unsqueeze(0), total_len, batch_first=True, enforce_sorted=False)
+                all_perms = torch.cat(perms, 0)
+                preds = sketchclf(all_perms, feature=False) # as a classifier
 
-                    p_ = sketchclf(partial_sketch)
-                    preds.append(p_)
-
-                preds = torch.cat(preds, dim=0)
-                all_labels.append( torch.tensor(label, device=device).repeat(n_strokes) )
+                all_labels.append( torch.tensor(label, device=device).repeat(args.n_strokes) )
                 all_preds.append(preds)
 
             all_preds = torch.cat(all_preds, dim=0)
@@ -121,6 +126,8 @@ def main( args ):
 
             if iteration % args.interval == 0:
                 print(f'[Training] [{iteration}/{e}/{args.epochs}] -> Loss: {loss}')
+                writer.add_scalar('Train loss', loss.item(), count)
+                count += 1
             
             optim.zero_grad()
             loss.backward()
@@ -130,9 +137,9 @@ def main( args ):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
+    parser.add_argument('--base', type=str, required=False, default='.', help='base path')
     parser.add_argument('--root', type=str, required=True, help='QuickDraw folder path (containing .bin files)')
     parser.add_argument('--embmodel', type=str, required=True, help='Embedding model (pre-trained) file')
-    parser.add_argument('--emblayer', type=int, required=False, default=3, help='Layers in the embedding model')
     parser.add_argument('--embdim', type=int, required=False, default=512, help='latent dim in the embedding model')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=16, help='batch size')
     parser.add_argument('-i', '--interval', type=int, required=False, default=100, help='Logging interval')

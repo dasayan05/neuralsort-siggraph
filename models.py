@@ -57,26 +57,20 @@ class Embedder(object):
         self.sketch = sketch
         self.device = device
         self.encoder = encoder.to(self.device)
-        self.n_strokes = len(sketch)
+        self.n_strokes = sketch.shape[0]
 
-        # breakpoint()
-        self.full_sketch = torch.cat(self.sketch, dim=0)
-        self.sketch.append(self.full_sketch)
-        self.lengths = torch.tensor([q.shape[0] for q in self.sketch], device=self.device)
-        self.sketch = nn.utils.rnn.pad_sequence(self.sketch)
-        self.packed_strokes = nn.utils.rnn.pack_padded_sequence(self.sketch, self.lengths, enforce_sorted=False)
+    def sandwitch(self, perm=None):
+        if perm is None:
+            perm = torch.eye(self.n_strokes).to(self.device)
+        
+        combined = torch.einsum('ab,bijk->aijk', perm, self.sketch)
+        return torch.clamp(combined.sum(0), 0., 1.).unsqueeze(0)
 
-        # get embeddings for all
-        # self.encoder.eval()
-        self.latent = self.encoder(self.packed_strokes)
-
-        self.emb_strokes, self.emb_full = self.latent[:-1, :], self.latent[-1, :].unsqueeze(0)
-
-        # Augmented stroke embeddings (concat'ed with full sketch embedding)
-        self.aug_emb_strokes = torch.cat((self.emb_strokes, self.emb_full.repeat(self.emb_strokes.shape[0], 1)), dim=1)
-
-    def get_aug_embeddings(self):
-        return self.aug_emb_strokes
+    def get_aug_embeddings(self, perm=None):
+        stroke_emb = self.encoder(self.sketch, feature=True)
+        sketch_emb = self.encoder(self.sandwitch(), feature=True)
+        
+        return torch.cat((stroke_emb, sketch_emb.repeat(self.n_strokes, 1)), 1)
 
 class ScoreFunction(nn.Module):
     def __init__(self, n_strokes, n_aug_emb):
