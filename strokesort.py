@@ -139,6 +139,8 @@ def main( args ):
             loss.backward()
             optim.step()
 
+        torch.save(score.state_dict(), os.path.join(args.base, 'model.pth'))
+
         # Testing
         score.eval()
         with torch.no_grad():
