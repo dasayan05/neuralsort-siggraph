@@ -21,7 +21,7 @@ def rasterize(stroke_list, fig, max_val=255):
     return X.astype(np.float32)
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
+    chosen_classes = [ 'cat', 'chair', 'face'] #, 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
     qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=5000, verbose=True,
         normalize_xy=False, mode=QuickDraw.STROKESET)
     # qdl = qd.get_dataloader(args.batch_size)

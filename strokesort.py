@@ -1,4 +1,4 @@
-import torch, os, numpy as np
+import torch, os, random, numpy as np
 import matplotlib.pyplot as plt
 from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 from torch.utils import tensorboard as tb
@@ -52,10 +52,12 @@ def stochastic_neural_sort(s, tau):
     return P_hat
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=1000, verbose=True, normalize_xy=False,
+    chosen_classes = [ 'cat', 'chair', 'face'] #, 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
+    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=10000, verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
-    qdl = qd.get_dataloader(args.batch_size)
+    qdtrain, qdtest = qd.split(0.98)
+    qdltrain = qdtrain.get_dataloader(args.batch_size)
+    qdltest = qdtest.get_dataloader(1)
 
     writer = tb.SummaryWriter(os.path.join(args.base, 'logs'))
     
@@ -74,6 +76,7 @@ def main( args ):
     score = ScoreFunction(args.n_strokes, args.embdim + args.embdim)
     score = score.to(device)
     sketchclf = sketchclf.to(device)
+    sketchclf.eval()
 
     # loss function
     xentropy = torch.nn.CrossEntropyLoss()
@@ -83,12 +86,15 @@ def main( args ):
     fig = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
     count = 0
+    stemfig, stemax = plt.subplots(1, 2)
 
     for e in range(args.epochs):
-        for iteration, B in enumerate(qdl):
+        score.train()
+        for iteration, B in enumerate(qdltrain):
+            break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
-                
+                random.shuffle(stroke_list) # randomize the stroke order
                 raster_strokes = prerender_stroke(stroke_list, fig)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
@@ -132,6 +138,63 @@ def main( args ):
             optim.zero_grad()
             loss.backward()
             optim.step()
+
+        # Testing
+        score.eval()
+        with torch.no_grad():
+            for i_batch, B in enumerate(qdltest):
+                i_sample = i_batch
+
+                stroke_list, label = B[0]
+                random.shuffle(stroke_list)
+
+                raster_strokes = prerender_stroke(stroke_list, fig)
+                if torch.cuda.is_available():
+                    raster_strokes = raster_strokes.cuda()
+
+                embedder = Embedder(sketchclf, raster_strokes, device=device)
+
+                # classification score for randomized permutations
+                p = torch.eye(args.n_strokes, device=device)
+                perms = []
+                for i in range(1, args.n_strokes + 1):
+                    p_ = p[:i]
+                    perms.append( embedder.sandwitch(perm=p_) )
+                all_perms = torch.cat(perms, 0)
+                preds = sketchclf(all_perms, feature=False)
+                preds = torch.softmax(preds, 0)
+                cls_score = preds[:,label].squeeze().cpu().numpy()
+                stemax[0].stem(cls_score, use_line_collection=True)
+
+                aug = embedder.get_aug_embeddings()
+                scores = score(aug)
+                
+                p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
+                p_discrete = torch.zeros((1, args.n_strokes, args.n_strokes), dtype=torch.float32, device=device)
+                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, args.n_strokes),
+                       torch.arange(args.n_strokes, device=device).view(1, -1).repeat(1, 1),
+                       torch.argmax(p_relaxed, dim=-1)] = 1
+                
+                # permutation matrix
+                p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
+                p = p.squeeze()
+
+                perms = []
+                for i in range(1, args.n_strokes + 1):
+                    p_ = p[:i]
+                    perms.append( embedder.sandwitch(perm=p_) )
+
+                all_perms = torch.cat(perms, 0)
+                preds = sketchclf(all_perms, feature=False) # as a classifier
+                preds = torch.softmax(preds, 0)
+                cls_score = preds[:,label].squeeze().cpu().numpy()
+                stemax[1].stem(cls_score, use_line_collection=True)
+
+                plt.savefig( os.path.join(args.base, 'logs', str(i_sample)+'.png') )
+                stemax[0].clear()
+                stemax[1].clear()
+                if i_sample > 10:
+                    break
 
 
 if __name__ == '__main__':
