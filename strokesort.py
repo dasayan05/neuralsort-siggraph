@@ -91,7 +91,6 @@ def main( args ):
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
-            break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
@@ -164,7 +163,7 @@ def main( args ):
                     perms.append( embedder.sandwitch(perm=p_) )
                 all_perms = torch.cat(perms, 0)
                 preds = sketchclf(all_perms, feature=False)
-                preds = torch.softmax(preds, 0)
+                preds = torch.softmax(preds, 1)
                 cls_score = preds[:,label].squeeze().cpu().numpy()
                 stemax[0].stem(cls_score, use_line_collection=True)
 
@@ -188,7 +187,7 @@ def main( args ):
 
                 all_perms = torch.cat(perms, 0)
                 preds = sketchclf(all_perms, feature=False) # as a classifier
-                preds = torch.softmax(preds, 0)
+                preds = torch.softmax(preds, 1)
                 cls_score = preds[:,label].squeeze().cpu().numpy()
                 stemax[1].stem(cls_score, use_line_collection=True)
 
