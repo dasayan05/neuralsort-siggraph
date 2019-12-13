@@ -8,14 +8,15 @@ from models import Embedder, ScoreFunction, SketchANet
 from utils import rasterize, accept_fstrokes, prerender_stroke
 
 def visualize(embedder, perm, savefile, device, args):
-    # classification score for randomized permutations
-    p_eye = torch.eye(args.n_strokes, device=device)
+    # create visualizations of the model prediction
+
+    p_eye = torch.eye(args.n_strokes, device=device) # for input-order
     
     figtest, axtest = plt.subplots(args.n_strokes, 4)
     figtest.set_figheight(10)
     figtest.set_figwidth(10)
 
-    for q, p in enumerate([p_eye, perm]):
+    for q, p in enumerate([p_eye, perm]): # 'perm' is the permutation from the model
         perms = []
         for i in range(1, args.n_strokes + 1):
             p_ = p[:i]
@@ -82,13 +83,13 @@ def main( args ):
     qdltrain = qdtrain.get_dataloader(args.batch_size)
     qdltest = qdtest.get_dataloader(1)
 
-    writer = tb.SummaryWriter(os.path.join(args.base, 'logs'))
+    writer = tb.SummaryWriter(os.path.join(args.base, 'logs', args.tag))
     
     sketchclf = SketchANet(len(chosen_classes))
     if os.path.exists(os.path.join(args.base, args.embmodel)):
         sketchclf.load_state_dict(torch.load(os.path.join(args.base, args.embmodel)))
     else:
-        raise 'args.embmodel not found'
+        raise FileNotFoundError('args.embmodel not found')
 
     if torch.cuda.is_available():
         device = torch.device('cuda')
@@ -163,7 +164,7 @@ def main( args ):
             loss.backward()
             optim.step()
 
-        torch.save(score.state_dict(), os.path.join(args.base, 'logs', args.modelname))
+        torch.save(score.state_dict(), os.path.join(args.base, args.modelname))
         print('[Saved] {}'.format(args.modelname))
 
         # Evaluation time
@@ -195,7 +196,7 @@ def main( args ):
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
                 p = p.squeeze()
 
-                savefile = os.path.join(args.base, 'logs', str(i_sample) + '.png')
+                savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
                 visualize(embedder, p, savefile, device, args)
                 
                 if i_sample > 25:
@@ -215,8 +216,12 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='pick up fixed no. of strokes')
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
-    parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
+    parser.add_argument('-m', '--modelname', type=str, required=False, help='name of the model')
+    parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     args = parser.parse_args()
+
+    if not hasattr(args, 'modelname'):
+        args.modelname = args.tag
 
     main( args )
     
