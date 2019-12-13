@@ -74,7 +74,7 @@ def main( args ):
         print(f'[Testing] -/{e}/{args.epochs} -> Accuracy: {accuracy} %')
         writer.add_scalar('test-accuracy', accuracy/100., e)
         if accuracy > best_acc:
-            torch.save(model.state_dict(), args.modelname)
+            torch.save(model.state_dict(), os.path.join(args.base, args.modelname))
             best_acc = accuracy
 
 if __name__ == '__main__':
