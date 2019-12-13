@@ -216,12 +216,9 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='pick up fixed no. of strokes')
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
-    parser.add_argument('-m', '--modelname', type=str, required=False, help='name of the model')
+    parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     args = parser.parse_args()
-
-    if not hasattr(args, 'modelname'):
-        args.modelname = args.tag
 
     main( args )
     

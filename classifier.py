@@ -87,12 +87,9 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=10, help='Number of classes for the classification task')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=100, help='No. of epochs')
     parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='how many strokes')
-    parser.add_argument('-m', '--modelname', type=str, required=False, help='name of model')
+    parser.add_argument('-m', '--modelname', type=str, required=True, help='name of model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     parser.add_argument('-i', '--print_interval', type=int, required=False, default=10, help='Print loss after this many iterations')
     args = parser.parse_args()
-
-    if not hasattr(args, 'modelname'):
-        args.modelname = args.tag
 
     main( args )
