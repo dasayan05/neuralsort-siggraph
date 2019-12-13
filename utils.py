@@ -1,28 +1,31 @@
-import struct
-from struct import unpack
+import torch
+import torch, numpy as np
+import matplotlib.pyplot as plt
 
-def unpack_drawing(file_handle):
-    '''
-    Utility function from QuickDraw project. Originally taken from ..
-    https://github.com/googlecreativelab/quickdraw-dataset/blob/master/examples/binary_file_parser.py
-    '''
-    key_id, = unpack('Q', file_handle.read(8))
-    countrycode, = unpack('2s', file_handle.read(2))
-    recognized, = unpack('b', file_handle.read(1))
-    timestamp, = unpack('I', file_handle.read(4))
-    n_strokes, = unpack('H', file_handle.read(2))
-    image = []
-    for i in range(n_strokes):
-        n_points, = unpack('H', file_handle.read(2))
-        fmt = str(n_points) + 'B'
-        x = unpack(fmt, file_handle.read(n_points))
-        y = unpack(fmt, file_handle.read(n_points))
-        image.append((x, y))
-    
-    return {
-        'key_id': key_id,
-        'countrycode': countrycode,
-        'recognized': recognized,
-        'timestamp': timestamp,
-        'image': image
-    }
+def rasterize(stroke_list, fig, max_val=255):
+    for stroke in stroke_list:
+        stroke = stroke[:,:2].astype(np.int64)
+        plt.plot(stroke[:,0], stroke[:,1])
+    plt.xlim(0, 255)
+    plt.ylim(0, 255)
+    plt.gca().invert_yaxis(); plt.axis('off')
+    fig.canvas.draw()
+    X = np.array(fig.canvas.renderer._renderer)
+    plt.gca().cla()
+    X = X[...,:3] / float(max_val)
+    X = X.mean(2)
+    X[X == 1.] = 0.; X[X > 0.] = 1.
+    return X.astype(np.float32)
+
+def accept_fstrokes(s, f):
+    if len(s) != f:
+        return False, None
+    else:
+        return True, s
+
+def prerender_stroke(stroke_list, fig):
+    R = []
+    for stroke in stroke_list:
+        stroke = [stroke,]
+        R.append( torch.tensor(rasterize(stroke, fig)).unsqueeze(0) )
+    return torch.stack(R, 0)

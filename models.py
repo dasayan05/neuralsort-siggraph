@@ -2,51 +2,40 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class RNNSketchEncoder(nn.Module):
-    def __init__(self, n_input, n_hidden, n_layer, dtype=torch.float32, bidirectional=True, dropout=0.5):
+class SketchANet(torch.nn.Module):
+    def __init__(self, num_classes = 10):
         super().__init__()
 
         # Track parameters
-        self.n_input, self.n_hidden = n_input, n_hidden
-        self.n_layer = n_layer
-        self.dtype = dtype
-        self.bidirectional = 2 if bidirectional else 1
-        self.dropout = dropout
+        self.num_classes = num_classes
 
-        self.cell = nn.GRU(self.n_input, self.n_hidden, self.n_layer, bidirectional=bidirectional, dropout=self.dropout)
+        self.conv1 = torch.nn.Conv2d(1, 64, (15, 15), stride=3)
+        self.conv2 = torch.nn.Conv2d(64, 128, (5, 5), stride=1)
+        self.conv3 = torch.nn.Conv2d(128, 256, (3, 3), stride=1, padding=1)
+        self.conv4 = torch.nn.Conv2d(256, 256, (3, 3), stride=1, padding=1)
+        self.conv5 = torch.nn.Conv2d(256, 256, (3, 3), stride=1, padding=1)
+        self.conv6 = torch.nn.Conv2d(256, 512, (7, 7), stride=1, padding=0)
+        self.conv7 = torch.nn.Conv2d(512, 512, (1, 1), stride=1, padding=0)
 
-    def forward(self, x):
-        # Initial hidden state
-        self.h_initial = torch.zeros(self.n_layer * self.bidirectional, x.batch_sizes.max(), self.n_hidden, dtype=self.dtype)
-        if torch.cuda.is_available():
-            self.h_initial = self.h_initial.cuda()
+        self.linear = torch.nn.Linear(512, self.num_classes)
 
-        # breakpoint()
-        _, h_final = self.cell(x, self.h_initial)
-        h_final = h_final.view(self.n_layer, self.bidirectional, -1, self.n_hidden)
-        return torch.cat((h_final[-1, 0, :], h_final[-1, 1, :]), 1)
-
-class RNNSketchClassifier(nn.Module):
-    def __init__(self, n_input, n_embedding, n_layer, n_classes, dtype=torch.float32, dropout=0.5):
-        super().__init__()
-
-        # Track parameters
-        self.n_embedding = n_embedding
-        self.n_classes = n_classes
-        self.dtype = dtype
-        self.dropout = dropout
-
-        self.sketchenc = RNNSketchEncoder(n_input, self.n_embedding, n_layer, dtype=self.dtype, dropout=self.dropout)
-        self.classifier = nn.Sequential(
-            nn.Linear(self.n_embedding * self.sketchenc.bidirectional, 128),
-            nn.ReLU(),
-            nn.Linear(128, self.n_classes)
-        )
-
-    def forward(self, x):
-        x = self.sketchenc(x)
-        x = self.classifier(x)
-        return x
+    def forward(self, x, feature=False):
+        x = F.relu(self.conv1(x))
+        x = F.max_pool2d(x, (3, 3), stride=2)
+        x = F.relu(self.conv2(x))
+        x = F.max_pool2d(x, (3, 3), stride=2)
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.relu(self.conv5(x))
+        x = F.max_pool2d(x, (3, 3), stride=2)
+        x = F.dropout(F.relu(self.conv6(x)))
+        x = F.dropout(F.relu(self.conv7(x)))
+        x = x.view(-1, 512)
+        
+        if feature:
+            return x
+        else:
+            return self.linear(x)
 
 class Embedder(object):
     def __init__(self, encoder, sketch, device):
@@ -89,14 +78,3 @@ class ScoreFunction(nn.Module):
         x = F.relu(self.l1(x))
         x = F.relu(self.l2(x))
         return torch.sigmoid(self.l3(x))
-
-if __name__ == '__main__':
-    import sys
-    sketchclf = RNNSketchClassifier(3, 256, 3, n_classes=2)
-    
-    from quickdraw.quickdraw import QuickDraw
-    qd = QuickDraw(sys.argv[1], categories=['airplane', 'bus'], max_sketches_each_cat=10, verbose=True, mode=QuickDraw.STROKESET)
-    qdl = qd.get_dataloader(4)
-    for B in qdl:
-        for sketch, c in B:
-            sketch = Embedder(sketchclf.sketchenc, sketch)

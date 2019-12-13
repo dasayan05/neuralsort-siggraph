@@ -2,33 +2,20 @@ import torch, numpy as np
 import matplotlib.pyplot as plt
 from torch.utils import tensorboard as tb
 
-from sketchanet import SketchANet
+from models import SketchANet
 from quickdraw.quickdraw import QuickDraw
-
-def rasterize(stroke_list, fig, max_val=255):
-    for stroke in stroke_list:
-        stroke = stroke[:,:2].astype(np.int64)
-        plt.plot(stroke[:,0], stroke[:,1])
-    plt.xlim(0, 255)
-    plt.ylim(0, 255)
-    plt.gca().invert_yaxis(); plt.axis('off')
-    fig.canvas.draw()
-    X = np.array(fig.canvas.renderer._renderer)
-    plt.gca().cla()
-    X = X[...,:3] / float(max_val)
-    X = X.mean(2)
-    X[X == 1.] = 0.; X[X > 0.] = 1.
-    return X.astype(np.float32)
+from utils import rasterize, accept_fstrokes
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face'] #, 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=5000, verbose=True,
-        normalize_xy=False, mode=QuickDraw.STROKESET)
+    chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
+    chosen_classes = chosen_classes[:args.n_classes]
+    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=35000 // len(chosen_classes), verbose=True,
+        normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
     # qdl = qd.get_dataloader(args.batch_size)
     qdtrain, qdtest = qd.split(0.8)
     qdltrain, qdltest = qdtrain.get_dataloader(args.batch_size), qdtest.get_dataloader(args.batch_size)
 
-    model = SketchANet(num_classes=args.num_classes)
+    model = SketchANet(len(chosen_classes))
     if torch.cuda.is_available():
         model = model.cuda()
     
@@ -96,7 +83,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--root', type=str, required=True, help='root of quickdraw')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=8, help='Batch size')
-    parser.add_argument('-c', '--num_classes', type=int, required=False, default=10, help='Number of classes for the classification task')
+    parser.add_argument('-c', '--n_classes', type=int, required=False, default=10, help='Number of classes for the classification task')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=100, help='No. of epochs')
     parser.add_argument('-n', '--n_strokes', type=int, required=False, default=9, help='how many strokes')
     parser.add_argument('-m', '--modelname', type=str, required=True, default='model', help='name of model')

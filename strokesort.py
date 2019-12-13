@@ -4,22 +4,42 @@ from torch.nn.utils.rnn import pad_sequence, pack_padded_sequence
 from torch.utils import tensorboard as tb
 
 from quickdraw.quickdraw import QuickDraw
-from models import Embedder, ScoreFunction
-from sketchanet import SketchANet
-from train_sketchanet import rasterize
+from models import Embedder, ScoreFunction, SketchANet
+from utils import rasterize, accept_fstrokes, prerender_stroke
 
-def prerender_stroke(stroke_list, fig):
-    R = []
-    for stroke in stroke_list:
-        stroke = [stroke,]
-        R.append( torch.tensor(rasterize(stroke, fig)).unsqueeze(0) )
-    return torch.stack(R, 0)
+def visualize(embedder, perm, savefile, device, args):
+    # classification score for randomized permutations
+    p_eye = torch.eye(args.n_strokes, device=device)
+    
+    figtest, axtest = plt.subplots(args.n_strokes, 4)
+    figtest.set_figheight(10)
+    figtest.set_figwidth(10)
 
-def accept_fstrokes(s, f):
-    if len(s) != f:
-        return False, None
-    else:
-        return True, s
+    for q, p in enumerate([p_eye, perm]):
+        perms = []
+        for i in range(1, args.n_strokes + 1):
+            p_ = p[:i]
+            perms.append( embedder.sandwitch(perm=p_) )
+        all_perms = torch.cat(perms, 0)
+        preds = embedder.encoder(all_perms, feature=False)
+        preds = torch.softmax(preds, 1)
+
+        for i in range(args.n_strokes):
+            img = all_perms[i,...].squeeze().cpu().numpy()
+            pred = preds[i,...].squeeze().cpu().numpy()
+            axtest[i,0 if q==0 else 2].imshow(img)
+            axtest[i,0 if q==0 else 2].axis('off')
+            axtest[i,1 if q==0 else 3].stem(pred, use_line_collection=True)
+            axtest[i,1 if q==0 else 3].axis('off')
+
+    axtest[0,0].set_title('Original Order')
+    axtest[0,1].set_title('Classif. score')
+    axtest[0,2].set_title('Model output')
+    axtest[0,3].set_title('Classif. score')
+
+    figtest.savefig(savefile)
+    plt.close(figtest)
+
 
 def stochastic_neural_sort(s, tau):
     ''' The core NeuralSort algorithm '''
@@ -52,9 +72,12 @@ def stochastic_neural_sort(s, tau):
     return P_hat
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face'] #, 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=10000, verbose=True, normalize_xy=False,
+    chosen_classes = [ 'cat', 'chair', 'face' , 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
+    chosen_classes = chosen_classes[:args.n_classes]
+    qd = QuickDraw(args.root, categories=chosen_classes,
+        max_sketches_each_cat=35000 // len(chosen_classes), verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
+    
     qdtrain, qdtest = qd.split(0.98)
     qdltrain = qdtrain.get_dataloader(args.batch_size)
     qdltest = qdtest.get_dataloader(1)
@@ -75,26 +98,28 @@ def main( args ):
     # score function
     score = ScoreFunction(args.n_strokes, args.embdim + args.embdim)
     score = score.to(device)
+    
     sketchclf = sketchclf.to(device)
-    sketchclf.eval()
+    sketchclf.eval() # just as a guiding signal
 
     # loss function
     xentropy = torch.nn.CrossEntropyLoss()
 
     # optimizer
     optim = torch.optim.Adam(score.parameters(), lr=args.lr)
-    fig = plt.figure(frameon=False, figsize=(2.25, 2.25))
+    canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
     count = 0
-    stemfig, stemax = plt.subplots(1, 2)
 
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
+            # break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
-                raster_strokes = prerender_stroke(stroke_list, fig)
+
+                raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
 
@@ -138,35 +163,25 @@ def main( args ):
             loss.backward()
             optim.step()
 
-        torch.save(score.state_dict(), os.path.join(args.base, 'model.pth'))
+        torch.save(score.state_dict(), os.path.join(args.base, 'logs', args.modelname))
+        print('[Saved] {}'.format(args.modelname))
 
-        # Testing
+        # Evaluation time
         score.eval()
         with torch.no_grad():
             for i_batch, B in enumerate(qdltest):
                 i_sample = i_batch
 
-                stroke_list, label = B[0]
+                stroke_list, label = B[0] # Just one sample in batch
+
                 random.shuffle(stroke_list)
 
-                raster_strokes = prerender_stroke(stroke_list, fig)
+                raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
 
                 embedder = Embedder(sketchclf, raster_strokes, device=device)
-
-                # classification score for randomized permutations
-                p = torch.eye(args.n_strokes, device=device)
-                perms = []
-                for i in range(1, args.n_strokes + 1):
-                    p_ = p[:i]
-                    perms.append( embedder.sandwitch(perm=p_) )
-                all_perms = torch.cat(perms, 0)
-                preds = sketchclf(all_perms, feature=False)
-                preds = torch.softmax(preds, 1)
-                cls_score = preds[:,label].squeeze().cpu().numpy()
-                stemax[0].stem(cls_score, use_line_collection=True)
-
+                
                 aug = embedder.get_aug_embeddings()
                 scores = score(aug)
                 
@@ -180,21 +195,10 @@ def main( args ):
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
                 p = p.squeeze()
 
-                perms = []
-                for i in range(1, args.n_strokes + 1):
-                    p_ = p[:i]
-                    perms.append( embedder.sandwitch(perm=p_) )
-
-                all_perms = torch.cat(perms, 0)
-                preds = sketchclf(all_perms, feature=False) # as a classifier
-                preds = torch.softmax(preds, 1)
-                cls_score = preds[:,label].squeeze().cpu().numpy()
-                stemax[1].stem(cls_score, use_line_collection=True)
-
-                plt.savefig( os.path.join(args.base, 'logs', str(i_sample)+'.png') )
-                stemax[0].clear()
-                stemax[1].clear()
-                if i_sample > 10:
+                savefile = os.path.join(args.base, 'logs', str(i_sample) + '.png')
+                visualize(embedder, p, savefile, device, args)
+                
+                if i_sample > 25:
                     break
 
 
@@ -206,10 +210,12 @@ if __name__ == '__main__':
     parser.add_argument('--embmodel', type=str, required=True, help='Embedding model (pre-trained) file')
     parser.add_argument('--embdim', type=int, required=False, default=512, help='latent dim in the embedding model')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=16, help='batch size')
-    parser.add_argument('-i', '--interval', type=int, required=False, default=100, help='Logging interval')
+    parser.add_argument('-i', '--interval', type=int, required=False, default=10, help='Logging interval')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='pick up fixed no. of strokes')
+    parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
+    parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     args = parser.parse_args()
 
     main( args )
