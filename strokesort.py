@@ -108,6 +108,7 @@ def main( args ):
 
     # optimizer
     optim = torch.optim.Adam(score.parameters(), lr=args.lr)
+    sched = torch.optim.lr_scheduler.StepLR(optim, step_size=1, gamma=0.75)
     canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
     count = 0
@@ -201,6 +202,9 @@ def main( args ):
                 
                 if i_sample > 25:
                     break
+    
+        # LR Scheduler
+        sched.step()
 
 
 if __name__ == '__main__':
