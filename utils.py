@@ -23,6 +23,18 @@ def accept_fstrokes(s, f):
     else:
         return True, s
 
+def accept_ltefstrokes(s, f):
+    if len(s) > f:
+        return False, None
+    else:
+        return True, s
+
+def accept_withinfg_strokes(s, f, g):
+    if (len(s) < f) or (len(s) > g):
+        return False, None
+    else:
+        return True, s
+
 def prerender_stroke(stroke_list, fig):
     R = []
     for stroke in stroke_list:

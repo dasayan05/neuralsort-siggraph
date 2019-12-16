@@ -62,11 +62,10 @@ class Embedder(object):
         return torch.cat((stroke_emb, sketch_emb.repeat(self.n_strokes, 1)), 1)
 
 class ScoreFunction(nn.Module):
-    def __init__(self, n_strokes, n_aug_emb):
+    def __init__(self, n_aug_emb):
         super().__init__()
 
         # Track parameters
-        self.n_strokes = n_strokes
         self.n_aug_emb = n_aug_emb
 
         # weights

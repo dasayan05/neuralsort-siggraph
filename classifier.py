@@ -4,13 +4,13 @@ from torch.utils import tensorboard as tb
 
 from models import SketchANet
 from quickdraw.quickdraw import QuickDraw
-from utils import rasterize, accept_fstrokes
+from utils import rasterize, accept_withinfg_strokes
 
 def main( args ):
     chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
     chosen_classes = chosen_classes[:args.n_classes]
     qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=35000 // len(chosen_classes), verbose=True,
-        normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
+        normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes))
     # qdl = qd.get_dataloader(args.batch_size)
     qdtrain, qdtest = qd.split(0.8)
     qdltrain, qdltest = qdtrain.get_dataloader(args.batch_size), qdtest.get_dataloader(args.batch_size)
@@ -86,7 +86,8 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=8, help='Batch size')
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=10, help='Number of classes for the classification task')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=100, help='No. of epochs')
-    parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='how many strokes')
+    parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
+    parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     parser.add_argument('-i', '--print_interval', type=int, required=False, default=10, help='Print loss after this many iterations')

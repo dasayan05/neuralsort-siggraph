@@ -5,27 +5,27 @@ from torch.utils import tensorboard as tb
 
 from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
-from utils import rasterize, accept_fstrokes, prerender_stroke
+from utils import rasterize, prerender_stroke, accept_withinfg_strokes
 
-def visualize(embedder, perm, savefile, device, args):
+def visualize(embedder, perm, savefile, device, n_strokes):
     # create visualizations of the model prediction
 
-    p_eye = torch.eye(args.n_strokes, device=device) # for input-order
+    p_eye = torch.eye(n_strokes, device=device) # for input-order
     
-    figtest, axtest = plt.subplots(args.n_strokes, 4)
+    figtest, axtest = plt.subplots(n_strokes, 4)
     figtest.set_figheight(10)
     figtest.set_figwidth(10)
 
     for q, p in enumerate([p_eye, perm]): # 'perm' is the permutation from the model
         perms = []
-        for i in range(1, args.n_strokes + 1):
+        for i in range(1, n_strokes + 1):
             p_ = p[:i]
             perms.append( embedder.sandwitch(perm=p_) )
         all_perms = torch.cat(perms, 0)
         preds = embedder.encoder(all_perms, feature=False)
         preds = torch.softmax(preds, 1)
 
-        for i in range(args.n_strokes):
+        for i in range(n_strokes):
             img = all_perms[i,...].squeeze().cpu().numpy()
             pred = preds[i,...].squeeze().cpu().numpy()
             axtest[i,0 if q==0 else 2].imshow(img)
@@ -77,7 +77,7 @@ def main( args ):
     chosen_classes = chosen_classes[:args.n_classes]
     qd = QuickDraw(args.root, categories=chosen_classes,
         max_sketches_each_cat=35000 // len(chosen_classes), verbose=True, normalize_xy=False,
-        mode=QuickDraw.STROKESET, filter_func=lambda s: accept_fstrokes(s, args.n_strokes))
+        mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes))
     
     qdtrain, qdtest = qd.split(0.98)
     qdltrain = qdtrain.get_dataloader(args.batch_size)
@@ -97,7 +97,7 @@ def main( args ):
         device = torch.device('cpu')
 
     # score function
-    score = ScoreFunction(args.n_strokes, args.embdim + args.embdim)
+    score = ScoreFunction(args.embdim + args.embdim)
     score = score.to(device)
     
     sketchclf = sketchclf.to(device)
@@ -116,10 +116,14 @@ def main( args ):
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
-            # break
+            break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
+
+                # separate stroke-count for separate samples;
+                # this is no longer provided by user
+                n_strokes = len(stroke_list)
 
                 raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
@@ -131,9 +135,9 @@ def main( args ):
                 scores = score(aug)
                 
                 p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
-                p_discrete = torch.zeros((1, args.n_strokes, args.n_strokes), dtype=torch.float32, device=device)
-                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, args.n_strokes),
-                       torch.arange(args.n_strokes, device=device).view(1, -1).repeat(1, 1),
+                p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
+                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
+                       torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
                        torch.argmax(p_relaxed, dim=-1)] = 1
                 
                 # permutation matrix
@@ -141,14 +145,14 @@ def main( args ):
                 p = p.squeeze()
 
                 perms = []
-                for i in range(1, args.n_strokes + 1):
+                for i in range(1, n_strokes + 1):
                     p_ = p[:i]
                     perms.append( embedder.sandwitch(perm=p_) )
 
                 all_perms = torch.cat(perms, 0)
                 preds = sketchclf(all_perms, feature=False) # as a classifier
 
-                all_labels.append( torch.tensor(label, device=device).repeat(args.n_strokes) )
+                all_labels.append( torch.tensor(label, device=device).repeat(n_strokes) )
                 all_preds.append(preds)
 
             all_preds = torch.cat(all_preds, dim=0)
@@ -178,6 +182,10 @@ def main( args ):
 
                 random.shuffle(stroke_list)
 
+                # separate stroke-count for separate samples;
+                # this is no longer provided by user
+                n_strokes = len(stroke_list)
+
                 raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
@@ -188,9 +196,9 @@ def main( args ):
                 scores = score(aug)
                 
                 p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
-                p_discrete = torch.zeros((1, args.n_strokes, args.n_strokes), dtype=torch.float32, device=device)
-                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, args.n_strokes),
-                       torch.arange(args.n_strokes, device=device).view(1, -1).repeat(1, 1),
+                p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
+                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
+                       torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
                        torch.argmax(p_relaxed, dim=-1)] = 1
                 
                 # permutation matrix
@@ -198,7 +206,7 @@ def main( args ):
                 p = p.squeeze()
 
                 savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
-                visualize(embedder, p, savefile, device, args)
+                visualize(embedder, p, savefile, device, n_strokes)
                 
                 if i_sample > 25:
                     break
@@ -218,7 +226,8 @@ if __name__ == '__main__':
     parser.add_argument('-i', '--interval', type=int, required=False, default=10, help='Logging interval')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
-    parser.add_argument('-f', '--n_strokes', type=int, required=False, default=9, help='pick up fixed no. of strokes')
+    parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
+    parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
