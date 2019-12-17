@@ -85,7 +85,7 @@ def main( args ):
 
     writer = tb.SummaryWriter(os.path.join(args.base, 'logs', args.tag))
     
-    sketchclf = SketchANet(len(chosen_classes))
+    sketchclf = SketchANet(args.n_classes)
     if os.path.exists(os.path.join(args.base, args.embmodel)):
         sketchclf.load_state_dict(torch.load(os.path.join(args.base, args.embmodel)))
     else:
