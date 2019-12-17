@@ -116,7 +116,7 @@ def main( args ):
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
-            break
+            # break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
