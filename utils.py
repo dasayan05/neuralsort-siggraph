@@ -6,8 +6,6 @@ def rasterize(stroke_list, fig, max_val=255):
     for stroke in stroke_list:
         stroke = stroke[:,:2].astype(np.int64)
         plt.plot(stroke[:,0], stroke[:,1])
-    plt.xlim(0, 255)
-    plt.ylim(0, 255)
     plt.gca().invert_yaxis(); plt.axis('off')
     fig.canvas.draw()
     X = np.array(fig.canvas.renderer._renderer)
