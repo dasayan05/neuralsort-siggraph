@@ -32,7 +32,7 @@ def main( args ):
     for e in range(args.epochs):
         for i, B in enumerate(qdltrain):
             C = [c for _, c in B]
-            B = [torch.tensor(rasterize(s, fig)).unsqueeze(0) for s, _ in B]
+            B = [torch.tensor(rasterize(s, fig, [0 - 40, 255 + 40], [0 - 40, 255 + 40])).unsqueeze(0) for s, _ in B]
 
             X = torch.stack(B, 0)
             Y = torch.tensor(C)

@@ -36,9 +36,9 @@ def accept_withinfg_strokes(s, f, g):
     else:
         return True, s
 
-def prerender_stroke(stroke_list, fig):
+def prerender_stroke(stroke_list, fig, xlim=[0,255], ylim=[0,255]):
     R = []
     for stroke in stroke_list:
         stroke = [stroke,]
-        R.append( torch.tensor(rasterize(stroke, fig)).unsqueeze(0) )
+        R.append( torch.tensor(rasterize(stroke, fig, xlim, ylim)).unsqueeze(0) )
     return torch.stack(R, 0)
