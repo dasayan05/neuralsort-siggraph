@@ -2,15 +2,18 @@ import torch
 import torch, numpy as np
 import matplotlib.pyplot as plt
 
-def rasterize(stroke_list, fig, max_val=255):
+def rasterize(stroke_list, fig, xlim=[0,255], ylim=[0,255]):
     for stroke in stroke_list:
         stroke = stroke[:,:2].astype(np.int64)
         plt.plot(stroke[:,0], stroke[:,1])
+    plt.xlim(*xlim)
+    plt.ylim(*ylim)
+
     plt.gca().invert_yaxis(); plt.axis('off')
     fig.canvas.draw()
     X = np.array(fig.canvas.renderer._renderer)
     plt.gca().cla()
-    X = X[...,:3] / float(max_val)
+    X = X[...,:3] / 255.
     X = X.mean(2)
     X[X == 1.] = 0.; X[X > 0.] = 1.
     return X.astype(np.float32)
