@@ -7,14 +7,17 @@ from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
 from utils import rasterize, prerender_stroke, accept_withinfg_strokes
 
-def visualize(embedder, perm, savefile, device, n_strokes):
+def analyse(embedder, perm, savefile, device, n_strokes, viz=True):
     # create visualizations of the model prediction
 
     p_eye = torch.eye(n_strokes, device=device) # for input-order
     
-    figtest, axtest = plt.subplots(n_strokes, 4)
-    figtest.set_figheight(10)
-    figtest.set_figwidth(10)
+    if viz:
+        figtest, axtest = plt.subplots(n_strokes, 4)
+        figtest.set_figheight(10)
+        figtest.set_figwidth(10)
+
+    orig_and_pred = []
 
     for q, p in enumerate([p_eye, perm]): # 'perm' is the permutation from the model
         perms = []
@@ -24,22 +27,27 @@ def visualize(embedder, perm, savefile, device, n_strokes):
         all_perms = torch.cat(perms, 0)
         preds = embedder.encoder(all_perms, feature=False)
         preds = torch.softmax(preds, 1)
+        orig_and_pred.append( preds.cpu() )
 
-        for i in range(n_strokes):
-            img = all_perms[i,...].squeeze().cpu().numpy()
-            pred = preds[i,...].squeeze().cpu().numpy()
-            axtest[i,0 if q==0 else 2].imshow(img)
-            axtest[i,0 if q==0 else 2].axis('off')
-            axtest[i,1 if q==0 else 3].stem(pred, use_line_collection=True)
-            axtest[i,1 if q==0 else 3].axis('off')
+        if viz:
+            for i in range(n_strokes):
+                img = all_perms[i,...].squeeze().cpu().numpy()
+                pred = preds[i,...].squeeze().cpu().numpy()
+                axtest[i,0 if q==0 else 2].imshow(img)
+                axtest[i,0 if q==0 else 2].axis('off')
+                axtest[i,1 if q==0 else 3].stem(pred, use_line_collection=True)
+                axtest[i,1 if q==0 else 3].axis('off')
 
-    axtest[0,0].set_title('Original Order')
-    axtest[0,1].set_title('Classif. score')
-    axtest[0,2].set_title('Model output')
-    axtest[0,3].set_title('Classif. score')
+    if viz:
+        axtest[0,0].set_title('Original Order')
+        axtest[0,1].set_title('Classif. score')
+        axtest[0,2].set_title('Model output')
+        axtest[0,3].set_title('Classif. score')
 
-    figtest.savefig(savefile)
-    plt.close(figtest)
+        figtest.savefig(savefile)
+        plt.close(figtest)
+
+    return orig_and_pred
 
 
 def stochastic_neural_sort(s, tau):
@@ -175,6 +183,8 @@ def main( args ):
         # Evaluation time
         score.eval()
         with torch.no_grad():
+            total, correct = 0, 0
+
             for i_batch, B in enumerate(qdltest):
                 i_sample = i_batch
 
@@ -206,11 +216,27 @@ def main( args ):
                 p = p.squeeze()
 
                 savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
-                visualize(embedder, p, savefile, device, n_strokes)
-                
-                if i_sample > 25:
-                    break
+                orig, pred = analyse(embedder, p, savefile, device, n_strokes, viz=True if i_sample < args.n_viz else False)
+
+                orig = (orig.argmax(1) == label).nonzero()
+                pred = (pred.argmax(1) == label).nonzero()
+
+                total += 1
+                if orig.numel() == 0:
+                    if pred.numel() > 0:
+                        correct += 1
+                    else:
+                        total -= 1
+                else:
+                    if pred.numel() > 0:
+                        if pred[0] < orig[0]:
+                            correct += 1
     
+            # print efficiency
+            efficiency = float(correct) / total
+            print('[Efficiency] {}/{} == {}'.format(correct, total, efficiency))
+            writer.add_scalar("Efficiency", efficiency, global_step=e)
+
         # LR Scheduler
         sched.step()
 
@@ -232,6 +258,7 @@ if __name__ == '__main__':
     parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
+    parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')
     args = parser.parse_args()
 
     main( args )
