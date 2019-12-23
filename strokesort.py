@@ -190,7 +190,7 @@ def main( args ):
 
                 stroke_list, label = B[0] # Just one sample in batch
 
-                random.shuffle(stroke_list)
+                # random.shuffle(stroke_list)
 
                 # separate stroke-count for separate samples;
                 # this is no longer provided by user
