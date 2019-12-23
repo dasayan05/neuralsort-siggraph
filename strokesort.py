@@ -229,7 +229,7 @@ def main( args ):
                         total -= 1
                 else:
                     if pred.numel() > 0:
-                        if pred[0] < orig[0]:
+                        if pred[0] <= orig[0]:
                             correct += 1
     
             # print efficiency
