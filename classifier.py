@@ -21,6 +21,7 @@ def main( args ):
     
     crit = torch.nn.CrossEntropyLoss()
     optim = torch.optim.Adam(model.parameters())
+    sched = torch.optim.lr_scheduler.StepLR(optim, step_size=5, gamma=0.8)
 
     # Tensorboard stuff
     writer = tb.SummaryWriter(os.path.join(args.base, 'logs', args.tag))
@@ -30,6 +31,7 @@ def main( args ):
     count = 0
     best_acc = 0
     for e in range(args.epochs):
+        model.train()
         for i, B in enumerate(qdltrain):
             C = [c for _, c in B]
             B = [torch.tensor(rasterize(s, fig, [0 - 40, 255 + 40], [0 - 40, 255 + 40])).unsqueeze(0) for s, _ in B]
@@ -55,6 +57,7 @@ def main( args ):
             count += 1
 
         correct, total = 0, 0
+        model.eval()
         for i, B in enumerate(qdltest):
             C = [c for _, c in B]
             B = [torch.tensor(rasterize(s, fig)).unsqueeze(0) for s, _ in B]
@@ -70,6 +73,8 @@ def main( args ):
             total += Y.size(0)
             correct += (predicted == Y).sum().item()
         
+        sched.step() # invoke LR scheduler
+
         accuracy = (correct / total) * 100
         print(f'[Testing] -/{e}/{args.epochs} -> Accuracy: {accuracy} %')
         writer.add_scalar('test-accuracy', accuracy/100., e)
