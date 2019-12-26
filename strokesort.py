@@ -107,7 +107,7 @@ def main( args ):
 
     # optimizer
     optim = torch.optim.Adam(score.parameters(), lr=args.lr)
-    sched = torch.optim.lr_scheduler.StepLR(optim, step_size=1, gamma=0.75)
+    # sched = torch.optim.lr_scheduler.StepLR(optim, step_size=1, gamma=0.75)
     canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
     count = 0
@@ -115,7 +115,7 @@ def main( args ):
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
-            break
+            # break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
@@ -244,7 +244,7 @@ def main( args ):
             writer.add_scalar("Efficiency", efficiency, global_step=e)
 
         # LR Scheduler
-        sched.step()
+        # sched.step()
 
 
 if __name__ == '__main__':
