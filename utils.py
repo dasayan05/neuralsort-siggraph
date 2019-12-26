@@ -41,4 +41,22 @@ def prerender_stroke(stroke_list, fig, xlim=[0,255], ylim=[0,255]):
     for stroke in stroke_list:
         stroke = [stroke,]
         R.append( torch.tensor(rasterize(stroke, fig, xlim, ylim)).unsqueeze(0) )
+    # breakpoint()
     return torch.stack(R, 0)
+
+def incr_ratserize(stroke_list, fig, xlim=[0,255], ylim=[0,255], coarse=2):
+    R = []
+    incomplete_sketch = []
+    for stroke in stroke_list:
+        incomplete_sketch.append( np.empty((0, 3)) )
+        try:
+            for pixels in np.array_split(stroke, stroke.shape[0] // coarse, 0):
+                incomplete_sketch[-1] = np.vstack((incomplete_sketch[-1], pixels))
+                R.append( torch.tensor(rasterize(incomplete_sketch, fig, xlim, ylim)).unsqueeze(0) )
+        except ValueError as verr:
+            incomplete_sketch[-1] = stroke
+    
+    return torch.stack(R, 0)
+
+def permuter(L, t):
+    return [L[i] for i in t]

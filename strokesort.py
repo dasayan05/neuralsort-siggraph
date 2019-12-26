@@ -5,19 +5,16 @@ from torch.utils import tensorboard as tb
 
 from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
-from utils import rasterize, prerender_stroke, accept_withinfg_strokes
+from utils import rasterize, incr_ratserize, prerender_stroke, accept_withinfg_strokes, permuter
 
-def analyse(embedder, perm, savefile, device, n_strokes, viz=True):
+def analyse(embedder, perm, savefile, device, n_strokes):
     # create visualizations of the model prediction
 
     p_eye = torch.eye(n_strokes, device=device) # for input-order
     
-    if viz:
-        figtest, axtest = plt.subplots(n_strokes, 4)
-        figtest.set_figheight(10)
-        figtest.set_figwidth(10)
-
-    orig_and_pred = []
+    figtest, axtest = plt.subplots(n_strokes, 4)
+    figtest.set_figheight(10)
+    figtest.set_figwidth(10)
 
     for q, p in enumerate([p_eye, perm]): # 'perm' is the permutation from the model
         perms = []
@@ -27,28 +24,22 @@ def analyse(embedder, perm, savefile, device, n_strokes, viz=True):
         all_perms = torch.cat(perms, 0)
         preds = embedder.encoder(all_perms, feature=False)
         preds = torch.softmax(preds, 1)
-        orig_and_pred.append( preds.cpu() )
 
-        if viz:
-            for i in range(n_strokes):
-                img = all_perms[i,...].squeeze().cpu().numpy()
-                pred = preds[i,...].squeeze().cpu().numpy()
-                axtest[i,0 if q==0 else 2].imshow(img)
-                axtest[i,0 if q==0 else 2].axis('off')
-                axtest[i,1 if q==0 else 3].stem(pred, use_line_collection=True)
-                axtest[i,1 if q==0 else 3].axis('off')
+        for i in range(n_strokes):
+            img = all_perms[i,...].squeeze().cpu().numpy()
+            pred = preds[i,...].squeeze().cpu().numpy()
+            axtest[i,0 if q==0 else 2].imshow(img)
+            axtest[i,0 if q==0 else 2].axis('off')
+            axtest[i,1 if q==0 else 3].stem(pred, use_line_collection=True)
+            axtest[i,1 if q==0 else 3].axis('off')
 
-    if viz:
-        axtest[0,0].set_title('Original Order')
-        axtest[0,1].set_title('Classif. score')
-        axtest[0,2].set_title('Model output')
-        axtest[0,3].set_title('Classif. score')
+    axtest[0,0].set_title('Original Order')
+    axtest[0,1].set_title('Classif. score')
+    axtest[0,2].set_title('Model output')
+    axtest[0,3].set_title('Classif. score')
 
-        figtest.savefig(savefile)
-        plt.close(figtest)
-
-    return orig_and_pred
-
+    figtest.savefig(savefile)
+    plt.close(figtest)
 
 def stochastic_neural_sort(s, tau):
     ''' The core NeuralSort algorithm '''
@@ -124,7 +115,7 @@ def main( args ):
     for e in range(args.epochs):
         score.train()
         for iteration, B in enumerate(qdltrain):
-            # break
+            break
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
@@ -196,7 +187,7 @@ def main( args ):
                 # this is no longer provided by user
                 n_strokes = len(stroke_list)
 
-                raster_strokes = prerender_stroke(stroke_list, canvas)
+                raster_strokes = prerender_stroke(stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
 
@@ -215,8 +206,23 @@ def main( args ):
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
                 p = p.squeeze()
 
-                savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
-                orig, pred = analyse(embedder, p, savefile, device, n_strokes, viz=True if i_sample < args.n_viz else False)
+                if i_sample < args.n_viz:
+                    savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
+                    analyse(embedder, p, savefile, device, n_strokes)
+
+                orig_stroke_list = stroke_list
+                perm_stroke_list = permuter(stroke_list, p.argmax(1))
+
+                orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
+                perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
+
+                if torch.cuda.is_available():
+                    orig_incr_rasters = orig_incr_rasters.cuda()
+                    perm_incr_rasters = perm_incr_rasters.cuda()
+
+                orig = sketchclf(orig_incr_rasters)
+                pred = sketchclf(perm_incr_rasters)
+                print(orig.shape[0], pred.shape[0])
 
                 orig = (orig.argmax(1) == label).nonzero()
                 pred = (pred.argmax(1) == label).nonzero()
