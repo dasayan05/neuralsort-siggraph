@@ -6,6 +6,7 @@ from torch.utils import tensorboard as tb
 from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
 from utils import rasterize, incr_ratserize, prerender_stroke, accept_withinfg_strokes, permuter
+from npz import NPZWriter
 
 def analyse(embedder, perm, savefile, device, n_strokes):
     # create visualizations of the model prediction
@@ -213,6 +214,11 @@ def main( args ):
                 orig_stroke_list = stroke_list
                 perm_stroke_list = permuter(stroke_list, p.argmax(1))
 
+                # prepare for writing
+                npzwriter.add(perm_stroke_list)
+                if i_sample % 50 == 0:
+                    npzwriter.flush()
+
                 orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
                 perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
 
@@ -245,6 +251,7 @@ def main( args ):
 
         # LR Scheduler
         # sched.step()
+        npzwriter.flush()
 
 
 if __name__ == '__main__':
@@ -265,6 +272,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')
+    parser.add_argument('--npzfile', type=str, required=False, default='./output.npz', help='NPZ file name')
     args = parser.parse_args()
 
     main( args )
