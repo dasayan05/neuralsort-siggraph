@@ -5,10 +5,14 @@ from torch.utils import tensorboard as tb
 from models import SketchANet
 from quickdraw.quickdraw import QuickDraw
 from utils import rasterize, accept_withinfg_strokes
+from utils import listofindex, subset
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face', 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    chosen_classes = chosen_classes[:args.n_classes]
+    all_classes = [ 'cat', 'skull', 'ant', 'axe', 'bicycle', 'binoculars', 'birthday cake', 'butterfly',
+                       'cactus', 'calculator', 'candle', 'ceiling fan', 'coffee cup', 'cow', 'stethoscope', 'dolphin',
+                       'fish', 'fork', 'golf club', 'guitar', 'hot air balloon', 'ice cream', 'key', 'knife',
+                       'octopus', 'teapot', 'piano', 'rifle', 'toothbrush', 'shoe', 'windmill', 'traffic light' ]
+    chosen_classes = subset(all_classes, args.clf_classes)
     qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=35000 // len(chosen_classes), verbose=True,
         normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes), npz=args.npz)
     # qdl = qd.get_dataloader(args.batch_size)
@@ -89,8 +93,8 @@ if __name__ == '__main__':
     parser.add_argument('--base', type=str, required=False, default='.', help='base path')
     parser.add_argument('--root', type=str, required=True, help='root of quickdraw')
     parser.add_argument('--npz', action='store_true', help='use .npz files (if not, .bin files)')
+    parser.add_argument('-c', '--clf_classes', type=listofindex, required=True, help='List of class indecies')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=8, help='Batch size')
-    parser.add_argument('-c', '--n_classes', type=int, required=False, default=10, help='Number of classes for the classification task')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=100, help='No. of epochs')
     parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
     parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')

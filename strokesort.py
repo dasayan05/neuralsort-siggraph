@@ -6,6 +6,7 @@ from torch.utils import tensorboard as tb
 from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
 from utils import rasterize, incr_ratserize, prerender_stroke, accept_withinfg_strokes, permuter
+from utils import listofindex, subset
 from npz import NPZWriter
 
 def analyse(embedder, perm, savefile, device, n_strokes):
@@ -73,10 +74,19 @@ def stochastic_neural_sort(s, tau):
     return P_hat
 
 def main( args ):
-    chosen_classes = [ 'cat', 'chair', 'face' , 'firetruck', 'mosquito', 'owl', 'pig', 'purse', 'shoe' ]
-    chosen_classes = chosen_classes[:args.n_classes]
-    qd = QuickDraw(args.root, categories=chosen_classes, npz=args.npz,
-        max_sketches_each_cat=35000 // len(chosen_classes), verbose=True, normalize_xy=False,
+    all_classes = [ 'cat', 'skull', 'ant', 'axe', 'bicycle', 'binoculars', 'birthday cake', 'butterfly',
+                       'cactus', 'calculator', 'candle', 'ceiling fan', 'coffee cup', 'cow', 'stethoscope', 'dolphin',
+                       'fish', 'fork', 'golf club', 'guitar', 'hot air balloon', 'ice cream', 'key', 'knife',
+                       'octopus', 'teapot', 'piano', 'rifle', 'toothbrush', 'shoe', 'windmill', 'traffic light' ]
+    
+    clf_classes = subset(all_classes, args.clf_classes)
+    sort_classes = subset(all_classes, args.sort_classes)
+    label_map = {}
+    for si, s in enumerate(sort_classes):
+        label_map[si] = clf_classes.index(s)
+
+    qd = QuickDraw(args.root, categories=sort_classes, npz=args.npz,
+        max_sketches_each_cat=35000 // len(sort_classes), verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes))
     
     qdtrain, qdtest = qd.split(0.98)
@@ -85,7 +95,7 @@ def main( args ):
 
     writer = tb.SummaryWriter(os.path.join(args.base, 'logs', args.tag))
     
-    sketchclf = SketchANet(args.n_classes)
+    sketchclf = SketchANet(len(clf_classes))
     if os.path.exists(os.path.join(args.base, args.embmodel)):
         sketchclf.load_state_dict(torch.load(os.path.join(args.base, args.embmodel)))
     else:
@@ -111,6 +121,9 @@ def main( args ):
     # sched = torch.optim.lr_scheduler.StepLR(optim, step_size=1, gamma=0.75)
     canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
+    # The NPZ Writer
+    npzwriter = NPZWriter(os.path.join(args.base, args.npzfile))
+
     count = 0
 
     for e in range(args.epochs):
@@ -120,6 +133,7 @@ def main( args ):
             all_preds, all_labels = [], []
             for stroke_list, label in B:
                 random.shuffle(stroke_list) # randomize the stroke order
+                label = label_map[label] # label mapping
 
                 # separate stroke-count for separate samples;
                 # this is no longer provided by user
@@ -181,6 +195,7 @@ def main( args ):
                 i_sample = i_batch
 
                 stroke_list, label = B[0] # Just one sample in batch
+                label = label_map[label] # label mapping
 
                 # random.shuffle(stroke_list)
 
@@ -268,7 +283,8 @@ if __name__ == '__main__':
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
     parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')
-    parser.add_argument('-c', '--n_classes', type=int, required=False, default=3, help='how many classes?')
+    parser.add_argument('-c', '--clf_classes', type=listofindex, required=True, help='List of class indecies in the classifier')
+    parser.add_argument('-s', '--sort_classes', type=listofindex, required=True, help='List of class indecies in the neuralsort')
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')

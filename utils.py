@@ -60,3 +60,13 @@ def incr_ratserize(stroke_list, fig, xlim=[0,255], ylim=[0,255], coarse=2):
 
 def permuter(L, t):
     return [L[i] for i in t]
+
+def listofindex(l):
+    l = l.split(',') # must be comma separated string
+    return [int(q) for q in l]
+
+def subset(l, inds):
+    ll = []
+    for i in inds:
+        ll.append(l[i])
+    return ll
