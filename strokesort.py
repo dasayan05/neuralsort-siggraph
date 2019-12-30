@@ -139,7 +139,7 @@ def main( args ):
                 # this is no longer provided by user
                 n_strokes = len(stroke_list)
 
-                raster_strokes = prerender_stroke(stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
+                raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
 
@@ -203,7 +203,7 @@ def main( args ):
                 # this is no longer provided by user
                 n_strokes = len(stroke_list)
 
-                raster_strokes = prerender_stroke(stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
+                raster_strokes = prerender_stroke(stroke_list, canvas)
                 if torch.cuda.is_available():
                     raster_strokes = raster_strokes.cuda()
 
@@ -234,8 +234,8 @@ def main( args ):
                 if i_sample % 50 == 0:
                     npzwriter.flush()
 
-                orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
-                perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas, [0 - 40, 255 + 40], [0 - 40, 255 + 40])
+                orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
+                perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas)
 
                 if torch.cuda.is_available():
                     orig_incr_rasters = orig_incr_rasters.cuda()
