@@ -13,7 +13,7 @@ def main( args ):
                        'fish', 'fork', 'golf club', 'guitar', 'hot air balloon', 'ice cream', 'key', 'knife',
                        'octopus', 'teapot', 'piano', 'rifle', 'toothbrush', 'shoe', 'windmill', 'traffic light' ]
     chosen_classes = subset(all_classes, args.clf_classes)
-    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=35000 // len(chosen_classes), verbose=True,
+    qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=args.max_sketches_each_cat, verbose=True,
         normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes), npz=args.npz)
     # qdl = qd.get_dataloader(args.batch_size)
     qdtrain, qdtest = qd.split(0.8)
@@ -93,6 +93,7 @@ if __name__ == '__main__':
     parser.add_argument('--base', type=str, required=False, default='.', help='base path')
     parser.add_argument('--root', type=str, required=True, help='root of quickdraw')
     parser.add_argument('--npz', action='store_true', help='use .npz files (if not, .bin files)')
+    parser.add_argument('--max_sketches_each_cat', '-n', type=int, required=False, default=15000, help='Max no. of sketches each category')
     parser.add_argument('-c', '--clf_classes', type=listofindex, required=True, help='List of class indecies')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=8, help='Batch size')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=100, help='No. of epochs')

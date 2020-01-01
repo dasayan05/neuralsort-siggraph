@@ -86,7 +86,7 @@ def main( args ):
         label_map[si] = clf_classes.index(s)
 
     qd = QuickDraw(args.root, categories=sort_classes, npz=args.npz,
-        max_sketches_each_cat=35000 // len(sort_classes), verbose=True, normalize_xy=False,
+        max_sketches_each_cat=args.max_sketches_each_cat, verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes))
     
     qdtrain, qdtest = qd.split(0.98)
@@ -275,6 +275,7 @@ if __name__ == '__main__':
     parser.add_argument('--base', type=str, required=False, default='.', help='base path')
     parser.add_argument('--root', type=str, required=True, help='QuickDraw folder path (containing .bin files)')
     parser.add_argument('--npz', action='store_true', help='use .npz files (if not, .bin files)')
+    parser.add_argument('--max_sketches_each_cat', '-n', type=int, required=False, default=15000, help='Max no. of sketches each category')
     parser.add_argument('--embmodel', type=str, required=True, help='Embedding model (pre-trained) file')
     parser.add_argument('--embdim', type=int, required=False, default=512, help='latent dim in the embedding model')
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=16, help='batch size')
