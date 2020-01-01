@@ -11,7 +11,10 @@ class NPZWriter(object):
 
     def add(self, stroke_list):
         sketch = np.concatenate(stroke_list, 0).astype(np.int16)
+        # sketch = np.vstack((np.array([0, 0, 0]), sketch))
+        sketch[:,:2] = sketch[:,:2] - sketch[0,:2]
         sketch[1:,:2] -= sketch[:-1,:2]
+        sketch = sketch[1:,:]
         
         u = np.random.rand()
 
