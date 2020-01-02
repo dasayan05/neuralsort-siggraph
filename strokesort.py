@@ -122,7 +122,8 @@ def main( args ):
     canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
     # The NPZ Writer
-    npzwriter = NPZWriter(os.path.join(args.base, args.npzfile))
+    if args.producenpz:
+        npzwriter = NPZWriter(os.path.join(args.base, args.npzfile))
 
     count = 0
 
@@ -222,50 +223,52 @@ def main( args ):
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
                 p = p.squeeze()
 
-                if i_sample < args.n_viz:
+                if (i_sample < args.n_viz) and args.viz:
                     savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
                     analyse(embedder, p, savefile, device, n_strokes)
 
-                orig_stroke_list = stroke_list
-                perm_stroke_list = permuter(stroke_list, p.argmax(1))
-
                 # prepare for writing
-                npzwriter.add(perm_stroke_list)
-                if i_sample % 50 == 0:
-                    npzwriter.flush()
+                if args.producenpz:
+                    npzwriter.add(perm_stroke_list)
+                    if i_sample % 50 == 0:
+                        npzwriter.flush()
 
-                orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
-                perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas)
+                if args.metric:
+                    orig_stroke_list = stroke_list
+                    perm_stroke_list = permuter(stroke_list, p.argmax(1))
 
-                if torch.cuda.is_available():
-                    orig_incr_rasters = orig_incr_rasters.cuda()
-                    perm_incr_rasters = perm_incr_rasters.cuda()
+                    orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
+                    perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas)
 
-                orig = sketchclf(orig_incr_rasters)
-                pred = sketchclf(perm_incr_rasters)
+                    if torch.cuda.is_available():
+                        orig_incr_rasters = orig_incr_rasters.cuda()
+                        perm_incr_rasters = perm_incr_rasters.cuda()
 
-                orig = (orig.argmax(1) == label).nonzero()
-                pred = (pred.argmax(1) == label).nonzero()
+                    orig = sketchclf(orig_incr_rasters)
+                    pred = sketchclf(perm_incr_rasters)
 
-                total += 1
-                if orig.numel() == 0:
-                    if pred.numel() > 0:
-                        correct += 1
-                    else:
-                        total -= 1
-                else:
-                    if pred.numel() > 0:
-                        if pred[0] <= orig[0]:
+                    orig = (orig.argmax(1) == label).nonzero()
+                    pred = (pred.argmax(1) == label).nonzero()
+
+                    total += 1
+                    if orig.numel() == 0:
+                        if pred.numel() > 0:
                             correct += 1
+                        else:
+                            total -= 1
+                    else:
+                        if pred.numel() > 0:
+                            if pred[0] <= orig[0]:
+                                correct += 1
     
             # print efficiency
-            efficiency = float(correct) / total
-            print('[Efficiency] {}/{} == {}'.format(correct, total, efficiency))
-            writer.add_scalar("Efficiency", efficiency, global_step=e)
+            if args.metric:
+                efficiency = float(correct) / total
+                print('[Efficiency] {}/{} == {}'.format(correct, total, efficiency))
+                writer.add_scalar("Efficiency", efficiency, global_step=e)
 
-        # LR Scheduler
-        # sched.step()
-        npzwriter.flush()
+        if args.producenpz:
+            npzwriter.flush()
 
 
 if __name__ == '__main__':
@@ -287,8 +290,11 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--sort_classes', type=listofindex, required=True, help='List of class indecies in the neuralsort')
     parser.add_argument('-m', '--modelname', type=str, required=True, help='name of the model')
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
+    parser.add_argument('--viz', action='store_true', help='want visualizations?')
     parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')
+    parser.add_argument('--producenpz', action='store_true', help='want to produce .npz file ?')
     parser.add_argument('--npzfile', type=str, required=False, default='./output.npz', help='NPZ file name')
+    parser.add_argument('--metric', action='store_true', help='compute metric (early recog.) ?')
     args = parser.parse_args()
 
     main( args )
