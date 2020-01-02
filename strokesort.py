@@ -7,7 +7,7 @@ from quickdraw.quickdraw import QuickDraw
 from models import Embedder, ScoreFunction, SketchANet
 from utils import rasterize, incr_ratserize, prerender_stroke, accept_withinfg_strokes, permuter
 from utils import listofindex, subset
-from npz import NPZWriter
+from npz import NPZWriter, MetricWriter
 
 def analyse(embedder, perm, savefile, device, n_strokes):
     # create visualizations of the model prediction
@@ -124,6 +124,8 @@ def main( args ):
     # The NPZ Writer
     if args.producenpz:
         npzwriter = NPZWriter(os.path.join(args.base, args.npzfile))
+    if args.metric:
+        metricwriter = MetricWriter(os.path.join(args.base, args.metricfile))
 
     count = 0
 
@@ -234,18 +236,28 @@ def main( args ):
                         npzwriter.flush()
 
                 if args.metric:
+                    rand_stroke_list = permuter(stroke_list, np.random.permutation(n_strokes).tolist())
                     orig_stroke_list = stroke_list
                     perm_stroke_list = permuter(stroke_list, p.argmax(1))
 
+                    rand_incr_rasters = incr_ratserize(rand_stroke_list, canvas)
                     orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
                     perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas)
 
                     if torch.cuda.is_available():
+                        rand_incr_rasters = rand_incr_rasters.cuda()
                         orig_incr_rasters = orig_incr_rasters.cuda()
                         perm_incr_rasters = perm_incr_rasters.cuda()
 
-                    orig = sketchclf(orig_incr_rasters)
-                    pred = sketchclf(perm_incr_rasters)
+                    rand = torch.softmax(sketchclf(rand_incr_rasters), 1)
+                    orig = torch.softmax(sketchclf(orig_incr_rasters), 1)
+                    pred = torch.softmax(sketchclf(perm_incr_rasters), 1)
+                    metricwriter.add(rand[:,label].unsqueeze(1).cpu().numpy(),
+                                     orig[:,label].unsqueeze(1).cpu().numpy(),
+                                     pred[:,label].unsqueeze(1).cpu().numpy())
+
+                    if i_sample % 50 == 0:
+                        metricwriter.flush()
 
                     orig = (orig.argmax(1) == label).nonzero()
                     pred = (pred.argmax(1) == label).nonzero()
@@ -266,6 +278,7 @@ def main( args ):
                 efficiency = float(correct) / total
                 print('[Efficiency] {}/{} == {}'.format(correct, total, efficiency))
                 writer.add_scalar("Efficiency", efficiency, global_step=e)
+                metricwriter.flush()
 
         if args.producenpz:
             npzwriter.flush()
@@ -295,6 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('--producenpz', action='store_true', help='want to produce .npz file ?')
     parser.add_argument('--npzfile', type=str, required=False, default='./output.npz', help='NPZ file name')
     parser.add_argument('--metric', action='store_true', help='compute metric (early recog.) ?')
+    parser.add_argument('--metricfile', type=str, required=False, default='./metric.npz', )
     args = parser.parse_args()
 
     main( args )

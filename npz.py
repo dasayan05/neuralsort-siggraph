@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.special import softmax
 
 class NPZWriter(object):
     def __init__(self, filename):
@@ -32,3 +33,33 @@ class NPZWriter(object):
 
         with open(self.filename, 'wb') as f:
             np.savez(f, train=Q_train, test=Q_test, valid=Q_valid)
+
+class MetricWriter(object):
+    def __init__(self, filename):
+        super().__init__()
+
+        # Track parameters
+        self.filename = filename
+        # The whole structure
+        self.R, self.O, self.P = [], [], []
+
+    def add(self, r, o, p):
+        r_x = np.linspace(0., 1., num=r.shape[0]); r_x = r_x[:,np.newaxis]; r_y = r
+        o_x = np.linspace(0., 1., num=o.shape[0]); o_x = o_x[:,np.newaxis]; o_y = o
+        p_x = np.linspace(0., 1., num=p.shape[0]); p_x = p_x[:,np.newaxis]; p_y = p
+
+        r = np.hstack((r_x, r_y))
+        o = np.hstack((o_x, o_y))
+        p = np.hstack((p_x, p_y))
+
+        self.R.append(r)
+        self.O.append(o)
+        self.P.append(p)
+    
+    def flush(self):
+        R = np.array(self.R, dtype=np.object)
+        O = np.array(self.O, dtype=np.object)
+        P = np.array(self.P, dtype=np.object)
+
+        with open(self.filename, 'wb') as f:
+            np.savez(f, rand=R, orig=O, pred=P)
