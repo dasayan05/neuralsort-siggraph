@@ -243,7 +243,6 @@ def main( args ):
 
                 orig = sketchclf(orig_incr_rasters)
                 pred = sketchclf(perm_incr_rasters)
-                print(orig.shape[0], pred.shape[0])
 
                 orig = (orig.argmax(1) == label).nonzero()
                 pred = (pred.argmax(1) == label).nonzero()
