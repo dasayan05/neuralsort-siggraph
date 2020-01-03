@@ -74,10 +74,10 @@ def stochastic_neural_sort(s, tau):
     return P_hat
 
 def main( args ):
-    all_classes = [ 'cat', 'face', 'chair', 'axe', 'bicycle', 'binoculars', 'birthday cake', 'butterfly',
+    all_classes = [ 'cat', 'face', 'bicycle', 'binoculars', 'birthday cake', 'guitar', 'octopus',
                        'cactus', 'calculator', 'candle', 'ceiling fan', 'coffee cup', 'cow', 'stethoscope', 'dolphin',
-                       'fish', 'fork', 'golf club', 'guitar', 'hot air balloon', 'ice cream', 'key', 'knife',
-                       'octopus', 'teapot', 'piano', 'rifle', 'toothbrush', 'shoe', 'windmill', 'traffic light' ]
+                       'fish', 'fork', 'golf club', 'butterfly', 'ice cream', 'key', 'knife',
+                       'hot air balloon', 'teapot', 'piano', 'rifle', 'toothbrush', 'shoe', 'windmill', 'traffic light' ]
     
     clf_classes = subset(all_classes, args.clf_classes)
     sort_classes = subset(all_classes, args.sort_classes)
