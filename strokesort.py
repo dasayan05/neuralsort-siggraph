@@ -89,9 +89,9 @@ def main( args ):
         max_sketches_each_cat=args.max_sketches_each_cat, verbose=True, normalize_xy=False,
         mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes))
     
-    qdtrain, qdtest = qd.split(0.98)
-    qdltrain = qdtrain.get_dataloader(args.batch_size)
-    qdltest = qdtest.get_dataloader(1)
+    # qdtrain, qdtest = qd.split(0.98)
+    qdltrain = qd.get_dataloader(args.batch_size)
+    qdltest = qd.get_dataloader(1)
 
     writer = tb.SummaryWriter(os.path.join(args.base, 'logs', args.tag))
     
@@ -234,10 +234,10 @@ def main( args ):
                 # prepare for writing
                 if args.producenpz:
                     npzwriter.add(perm_stroke_list)
-                    if i_sample % 50 == 0:
+                    if i_sample % 500 == 0:
                         npzwriter.flush()
 
-                if args.metric:
+                if args.metric and (i_sample < args.n_metric):
                     rand_stroke_list = permuter(stroke_list, np.random.permutation(n_strokes).tolist())
                     orig_stroke_list = stroke_list
 
@@ -306,6 +306,7 @@ if __name__ == '__main__':
     parser.add_argument('--tag', type=str, required=True, help='a tag for recognizing model in TB')
     parser.add_argument('--viz', action='store_true', help='want visualizations?')
     parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')
+    parser.add_argument('--n_metric', type=int, required=False, default=1000, help='How many samples to use for metric calc')
     parser.add_argument('--producenpz', action='store_true', help='want to produce .npz file ?')
     parser.add_argument('--npzfile', type=str, required=False, default='./output.npz', help='NPZ file name')
     parser.add_argument('--metric', action='store_true', help='compute metric (early recog.) ?')
