@@ -225,6 +225,8 @@ def main( args ):
                 p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
                 p = p.squeeze()
 
+                perm_stroke_list = permuter(stroke_list, p.argmax(1))
+
                 if (i_sample < args.n_viz) and args.viz:
                     savefile = os.path.join(args.base, 'logs', args.modelname + '_' + str(i_sample) + '.png')
                     analyse(embedder, p, savefile, device, n_strokes)
@@ -238,7 +240,6 @@ def main( args ):
                 if args.metric:
                     rand_stroke_list = permuter(stroke_list, np.random.permutation(n_strokes).tolist())
                     orig_stroke_list = stroke_list
-                    perm_stroke_list = permuter(stroke_list, p.argmax(1))
 
                     rand_incr_rasters = incr_ratserize(rand_stroke_list, canvas)
                     orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
