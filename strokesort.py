@@ -133,58 +133,62 @@ def main( args ):
         score.train()
         for iteration, B in enumerate(qdltrain):
             # break
-            all_preds, all_labels = [], []
-            for stroke_list, label in B:
-                random.shuffle(stroke_list) # randomize the stroke order
-                label = label_map[label] # label mapping
+            try:
+                with torch.autograd.detect_anomaly():
+                    all_preds, all_labels = [], []
+                    for stroke_list, label in B:
+                        random.shuffle(stroke_list) # randomize the stroke order
+                        label = label_map[label] # label mapping
 
-                # separate stroke-count for separate samples;
-                # this is no longer provided by user
-                n_strokes = len(stroke_list)
+                        # separate stroke-count for separate samples;
+                        # this is no longer provided by user
+                        n_strokes = len(stroke_list)
 
-                raster_strokes = prerender_stroke(stroke_list, canvas)
-                if torch.cuda.is_available():
-                    raster_strokes = raster_strokes.cuda()
+                        raster_strokes = prerender_stroke(stroke_list, canvas)
+                        if torch.cuda.is_available():
+                            raster_strokes = raster_strokes.cuda()
 
-                embedder = Embedder(sketchclf, raster_strokes, device=device)
-                aug = embedder.get_aug_embeddings()
+                        embedder = Embedder(sketchclf, raster_strokes, device=device)
+                        aug = embedder.get_aug_embeddings()
 
-                scores = score(aug)
-                
-                p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
-                p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
-                p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
-                       torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
-                       torch.argmax(p_relaxed, dim=-1)] = 1
-                
-                # permutation matrix
-                p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
-                p = p.squeeze()
+                        scores = score(aug)
+                        
+                        p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
+                        p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
+                        p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
+                               torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
+                               torch.argmax(p_relaxed, dim=-1)] = 1
+                        
+                        # permutation matrix
+                        p = p_relaxed + p_discrete.detach() - p_relaxed.detach() # ST Gradient Estimator
+                        p = p.squeeze()
 
-                perms = []
-                for i in range(1, n_strokes + 1):
-                    p_ = p[:i]
-                    perms.append( embedder.sandwitch(perm=p_) )
+                        perms = []
+                        for i in range(1, n_strokes + 1):
+                            p_ = p[:i]
+                            perms.append( embedder.sandwitch(perm=p_) )
 
-                all_perms = torch.cat(perms, 0)
-                preds = sketchclf(all_perms, feature=False) # as a classifier
+                        all_perms = torch.cat(perms, 0)
+                        preds = sketchclf(all_perms, feature=False) # as a classifier
 
-                all_labels.append( torch.tensor(label, device=device).repeat(n_strokes) )
-                all_preds.append(preds)
+                        all_labels.append( torch.tensor(label, device=device).repeat(n_strokes) )
+                        all_preds.append(preds)
 
-            all_preds = torch.cat(all_preds, dim=0)
-            all_labels = torch.cat(all_labels, dim=0).flatten()
-            
-            loss = xentropy(all_preds, all_labels)
+                    all_preds = torch.cat(all_preds, dim=0)
+                    all_labels = torch.cat(all_labels, dim=0).flatten()
+                    
+                    loss = xentropy(all_preds, all_labels)
 
-            if iteration % args.interval == 0:
-                print(f'[Training] [{iteration}/{e}/{args.epochs}] -> Loss: {loss}')
-                writer.add_scalar('Train loss', loss.item(), count)
-                count += 1
-            
-            optim.zero_grad()
-            loss.backward()
-            optim.step()
+                    if iteration % args.interval == 0:
+                        print(f'[Training] [{iteration}/{e}/{args.epochs}] -> Loss: {loss}')
+                        writer.add_scalar('Train loss', loss.item(), count)
+                        count += 1
+                    
+                    optim.zero_grad()
+                    loss.backward()
+                    optim.step()
+            except:
+                continue
 
         torch.save(score.state_dict(), os.path.join(args.base, args.modelname))
         print('[Saved] {}'.format(args.modelname))
