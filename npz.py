@@ -19,9 +19,9 @@ class NPZWriter(object):
         
         u = np.random.rand()
 
-        if u >= 0. and u < 0.8:
+        if u >= 0. and u < 0.9:
             self.Q_train.append(sketch)
-        elif u >= 0.8 and u < 0.9:
+        elif u >= 0.9 and u < 0.95:
             self.Q_test.append(sketch)
         else:
             self.Q_valid.append(sketch)
