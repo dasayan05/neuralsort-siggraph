@@ -121,15 +121,17 @@ def main( args ):
     # sched = torch.optim.lr_scheduler.StepLR(optim, step_size=1, gamma=0.75)
     canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
 
-    # The NPZ Writer
-    if args.producenpz:
-        npzwriter = NPZWriter(os.path.join(args.base, args.npzfile))
-    if args.metric:
-        metricwriter = MetricWriter(os.path.join(args.base, args.metricfile))
-
     count = 0
 
     for e in range(args.epochs):
+        
+        ####### The NPZ Writer
+        if args.producenpz:
+            npzwriter = NPZWriter(os.path.join(args.base, f'e{e}_' + args.npzfile))
+        ####### The Metric Writer
+        if args.metric:
+            metricwriter = MetricWriter(os.path.join(args.base, f'e{e}_' + args.metricfile))
+        
         score.train()
         for iteration, B in enumerate(qdltrain):
             # break
@@ -312,9 +314,9 @@ if __name__ == '__main__':
     parser.add_argument('--n_viz', '-z', type=int, required=False, default=25, help='How many samples to visualize')
     parser.add_argument('--n_metric', type=int, required=False, default=1000, help='How many samples to use for metric calc')
     parser.add_argument('--producenpz', action='store_true', help='want to produce .npz file ?')
-    parser.add_argument('--npzfile', type=str, required=False, default='./output.npz', help='NPZ file name')
+    parser.add_argument('--npzfile', type=str, required=False, default='output.npz', help='NPZ file name')
     parser.add_argument('--metric', action='store_true', help='compute metric (early recog.) ?')
-    parser.add_argument('--metricfile', type=str, required=False, default='./metric.npz', )
+    parser.add_argument('--metricfile', type=str, required=False, default='metric.npz', )
     args = parser.parse_args()
 
     main( args )
