@@ -2,6 +2,22 @@ import torch
 import torch, numpy as np
 import matplotlib.pyplot as plt
 
+def to_stroke_list(sketch):
+    ## sketch: an `.npz` style sketch from QuickDraw
+    sketch = np.vstack((np.array([0, 0, 0]), sketch))
+    sketch[:,:2] = np.cumsum(sketch[:,:2], axis=0)
+
+    # range normalization
+    xmin, xmax = sketch[:,0].min(), sketch[:,0].max()
+    ymin, ymax = sketch[:,1].min(), sketch[:,1].max()
+
+    sketch[:,0] = ((sketch[:,0] - xmin) / float(xmax - xmin)) * 255.
+    sketch[:,1] = ((sketch[:,1] - ymin) / float(ymax - ymin)) * 255.
+    sketch = sketch.astype(np.int64)
+
+    stroke_list = np.split(sketch[:,:2], np.where(sketch[:,2])[0] + 1, axis=0)[:-1]
+    return stroke_list
+
 def rasterize(stroke_list, fig, xlim=[0,255], ylim=[0,255]):
     for stroke in stroke_list:
         stroke = stroke[:,:2].astype(np.int64)
