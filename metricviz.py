@@ -12,13 +12,23 @@ def main( args ):
         c = np.linspace(0., 1., num = 100)
         r_ac, o_ac, p_ac = np.zeros_like(c), np.zeros_like(c), np.zeros_like(c)
         for i, (r, o, p) in enumerate(zip(R, O, P)):
-            r_spl = interp1d(r[:,0], r[:,1], kind=INTERP)
-            o_spl = interp1d(o[:,0], o[:,1], kind=INTERP)
-            p_spl = interp1d(p[:,0], p[:,1], kind=INTERP)
+            try:
+                r_spl = interp1d(r[:,0], r[:,1], kind=INTERP)
+                r_ac = (i * r_ac + r_spl(c)) / (i + 1)
+            except:
+                pass
+
+            try:
+                o_spl = interp1d(o[:,0], o[:,1], kind=INTERP)
+                o_ac = (i * o_ac + o_spl(c)) / (i + 1)
+            except:
+                pass
             
-            r_ac = (i * r_ac + r_spl(c)) / (i + 1)
-            o_ac = (i * o_ac + o_spl(c)) / (i + 1)
-            p_ac = (i * p_ac + p_spl(c)) / (i + 1)
+            try:
+                p_spl = interp1d(p[:,0], p[:,1], kind=INTERP)
+                p_ac = (i * p_ac + p_spl(c)) / (i + 1)
+            except:
+                pass
         
         if not args.ignorerandom:
             plt.plot(c, r_ac, color='r')
