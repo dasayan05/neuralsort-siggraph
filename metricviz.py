@@ -20,10 +20,16 @@ def main( args ):
             o_ac = (i * o_ac + o_spl(c)) / (i + 1)
             p_ac = (i * p_ac + p_spl(c)) / (i + 1)
         
-        plt.plot(c, r_ac, color='r')
+        if not args.ignorerandom:
+            plt.plot(c, r_ac, color='r')
         plt.plot(c, o_ac, color='g')
         plt.plot(c, p_ac, color='b')
-        plt.legend(['random order', 'human order', 'model order'])
+        
+        if not args.ignorerandom:
+            plt.legend(['random order', 'human order', 'model order'])
+        else:
+            plt.legend(['human order', 'model order'])
+        
         plt.xlabel('sketch completion percentage')
         plt.ylabel('class recognition accuracy')
         if args.category != '':
@@ -38,6 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('-m', '--metricfile', type=str, required=True, help='The metric file')
     parser.add_argument('-o', '--outfile', type=str, required=True, help='Output graph file')
     parser.add_argument('-c', '--category', type=str, required=False, default='', help='name of category')
+    parser.add_argument('--ignorerandom', action='store_true', help='Ignore the random curve')
     args = parser.parse_args()
 
     main( args )
