@@ -237,8 +237,7 @@ def main( args ):
                 aug = embedder.get_aug_embeddings()
                 scores = score(aug)
                 
-                # p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
-                p_relaxed = deterministic_neural_sort(scores.unsqueeze(0), args.tau)
+                p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
                 p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
                 p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
                        torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
@@ -320,7 +319,6 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=16, help='batch size')
     parser.add_argument('-i', '--interval', type=int, required=False, default=10, help='Logging interval')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
-    parser.add_argument('--tau', type=float, required=False, default=1e-1, help='The \\tau in NeuralSort')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
     parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')
