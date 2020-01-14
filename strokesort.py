@@ -114,6 +114,13 @@ def main( args ):
     # score function
     score = ScoreFunction(args.embdim + args.embdim)
     score = score.to(device)
+    score_model_path = os.path.join(args.base, args.modelname)
+    if os.path.exists(score_model_path):
+        score.load_state_dict(torch.load(score_model_path))
+        skip_train = True
+        print('model found; skipping training')
+    else:
+        skip_train = False
     
     sketchclf = sketchclf.to(device)
     sketchclf.eval() # just as a guiding signal
@@ -139,7 +146,8 @@ def main( args ):
         
         score.train()
         for iteration, B in enumerate(qdltrain):
-            # break
+            if skip_train:
+                break
             try:
                 with torch.autograd.detect_anomaly():
                     all_preds, all_labels = [], []
@@ -197,8 +205,11 @@ def main( args ):
             except:
                 continue
 
-        torch.save(score.state_dict(), os.path.join(args.base, args.modelname))
-        print('[Saved] {}'.format(args.modelname))
+        if not skip_train:
+            torch.save(score.state_dict(), score_model_path)
+            print('[Saved] {}'.format(args.modelname))
+        else:
+            print('[Saved] {}'.format('Skiped trained; saving not required'))
 
         # Evaluation time
         score.eval()
