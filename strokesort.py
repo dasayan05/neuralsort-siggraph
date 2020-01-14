@@ -43,23 +43,23 @@ def analyse(embedder, perm, savefile, device, n_strokes):
     figtest.savefig(savefile)
     plt.close(figtest)
 
+def deterministic_neural_sort(s, tau):
+    device = s.device # Detect the device type of the score 's'
+    
+    n = s.size()[1]
+    one = torch.ones((n, 1), device=device)
+    A_s = torch.abs(s - s.permute(0, 2, 1))
+    B = torch.matmul(A_s, torch.matmul(one, torch.transpose(one, 0, 1)))
+    scaling = (n + 1 - 2 * (torch.arange(n, dtype=s.dtype, device=device) + 1))
+    C = torch.matmul(s, scaling.unsqueeze(0))
+    P_max = (C-B).permute(0, 2, 1)
+    sm = torch.nn.Softmax(-1)
+    P_hat = sm(P_max / tau)
+    
+    return P_hat
+
 def stochastic_neural_sort(s, tau):
     ''' The core NeuralSort algorithm '''
-    
-    def deterministic_neural_sort(s, tau):
-        device = s.device # Detect the device type of the score 's'
-        
-        n = s.size()[1]
-        one = torch.ones((n, 1), device=device)
-        A_s = torch.abs(s - s.permute(0, 2, 1))
-        B = torch.matmul(A_s, torch.matmul(one, torch.transpose(one, 0, 1)))
-        scaling = (n + 1 - 2 * (torch.arange(n, dtype=s.dtype, device=device) + 1))
-        C = torch.matmul(s, scaling.unsqueeze(0))
-        P_max = (C-B).permute(0, 2, 1)
-        sm = torch.nn.Softmax(-1)
-        P_hat = sm(P_max / tau)
-        
-        return P_hat
 
     def sample_gumbel(samples_shape, device, dtype=torch.float32, eps = 1e-10):
         U = torch.rand(samples_shape, device=device, dtype=dtype)
@@ -226,7 +226,8 @@ def main( args ):
                 aug = embedder.get_aug_embeddings()
                 scores = score(aug)
                 
-                p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
+                # p_relaxed = stochastic_neural_sort(scores.unsqueeze(0), 1 / (1 + e**0.5))
+                p_relaxed = deterministic_neural_sort(scores.unsqueeze(0), args.tau)
                 p_discrete = torch.zeros((1, n_strokes, n_strokes), dtype=torch.float32, device=device)
                 p_discrete[torch.arange(1, device=device).view(-1, 1).repeat(1, n_strokes),
                        torch.arange(n_strokes, device=device).view(1, -1).repeat(1, 1),
@@ -308,6 +309,7 @@ if __name__ == '__main__':
     parser.add_argument('-b', '--batch_size', type=int, required=False, default=16, help='batch size')
     parser.add_argument('-i', '--interval', type=int, required=False, default=10, help='Logging interval')
     parser.add_argument('--lr', type=float, required=False, default=1e-4, help='Learning rate')
+    parser.add_argument('--tau', type=float, required=False, default=1e-1, help='The \\tau in NeuralSort')
     parser.add_argument('-e', '--epochs', type=int, required=False, default=10, help='no. of epochs')
     parser.add_argument('-f', '--max_strokes', type=int, required=False, default=10, help='max no. of strokes')
     parser.add_argument('-g', '--min_strokes', type=int, required=False, default=7, help='min no. of strokes')
