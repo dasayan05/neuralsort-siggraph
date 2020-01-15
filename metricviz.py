@@ -8,10 +8,10 @@ def main( args ):
     fig = plt.figure()
     with open(args.metricfile, 'rb') as f:
         Q = np.load(f, allow_pickle=True, encoding='bytes')
-        R, O, P = Q['rand'], Q['orig'], Q['pred']
+        R, O, P, G = Q['rand'], Q['orig'], Q['pred'], Q['gred']
         c = np.linspace(0., 1., num = 100)
-        r_ac, o_ac, p_ac = np.zeros_like(c), np.zeros_like(c), np.zeros_like(c)
-        for i, (r, o, p) in enumerate(zip(R, O, P)):
+        r_ac, o_ac, p_ac, g_ac = np.zeros_like(c), np.zeros_like(c), np.zeros_like(c), np.zeros_like(c)
+        for i, (r, o, p, g) in enumerate(zip(R, O, P, G)):
             try:
                 r_spl = interp1d(r[:,0], r[:,1], kind=INTERP)
                 r_ac = (i * r_ac + r_spl(c)) / (i + 1)
@@ -29,16 +29,23 @@ def main( args ):
                 p_ac = (i * p_ac + p_spl(c)) / (i + 1)
             except:
                 pass
+
+            try:
+                g_spl = interp1d(g[:,0], g[:,1], kind=INTERP)
+                g_ac = (i * g_ac + g_spl(c)) / (i + 1)
+            except:
+                pass
         
         if not args.ignorerandom:
             plt.plot(c, r_ac, color='r')
         plt.plot(c, o_ac, color='g')
         plt.plot(c, p_ac, color='b')
+        plt.plot(c, g_ac, color='m')
         
         if not args.ignorerandom:
-            plt.legend(['random order', 'human order', 'model order'])
+            plt.legend(['random order', 'human order', 'model order', 'greedy order'])
         else:
-            plt.legend(['human order', 'model order'])
+            plt.legend(['human order', 'model order', 'greedy order'])
         
         plt.xlabel('sketch completion percentage')
         plt.ylabel('class recognition accuracy')

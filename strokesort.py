@@ -73,6 +73,26 @@ def stochastic_neural_sort(s, tau):
     
     return P_hat
 
+def greedy(stroke_list, classifier, label, fig, device):
+    perm_stroke_list = []
+    perm_stroke_idx_list = []
+    for _ in range(len(stroke_list)):
+        best_score = 0.0
+        best_stroke = None
+        best_stroke_idx = None
+        for i_stroke, stroke in enumerate(stroke_list):
+            if i_stroke not in perm_stroke_idx_list:
+                R = torch.tensor(rasterize([*perm_stroke_list, stroke], fig), device=device).unsqueeze(0).unsqueeze(0)
+                acc = torch.softmax(classifier(R).squeeze(), 0)
+                if acc[label] > best_score:
+                    best_score = acc[label]
+                    best_stroke = stroke
+                    best_stroke_idx = i_stroke
+        perm_stroke_list.append(best_stroke)
+        perm_stroke_idx_list.append(best_stroke_idx)
+    return perm_stroke_list
+
+
 def main( args ):
     all_classes = [ 'cat', 'face', 'bicycle', 'binoculars', 'birthday cake', 'guitar', 'windmill', # from 0 to 9
                        'piano', 'calculator', 'cow',
@@ -262,22 +282,28 @@ def main( args ):
                 if args.metric and (i_sample < args.n_metric):
                     rand_stroke_list = permuter(stroke_list, np.random.permutation(n_strokes).tolist())
                     orig_stroke_list = stroke_list
+                    gred_stroke_list = greedy(stroke_list, sketchclf, label, canvas, device)
 
                     rand_incr_rasters = incr_ratserize(rand_stroke_list, canvas)
                     orig_incr_rasters = incr_ratserize(orig_stroke_list, canvas)
                     perm_incr_rasters = incr_ratserize(perm_stroke_list, canvas)
+                    gred_incr_rasters = incr_ratserize(gred_stroke_list, canvas)
 
                     if torch.cuda.is_available():
                         rand_incr_rasters = rand_incr_rasters.cuda()
                         orig_incr_rasters = orig_incr_rasters.cuda()
                         perm_incr_rasters = perm_incr_rasters.cuda()
+                        gred_incr_rasters = gred_incr_rasters.cuda()
 
                     rand = torch.softmax(sketchclf(rand_incr_rasters), 1)
                     orig = torch.softmax(sketchclf(orig_incr_rasters), 1)
                     pred = torch.softmax(sketchclf(perm_incr_rasters), 1)
+                    gred = torch.softmax(sketchclf(gred_incr_rasters), 1)
                     metricwriter.add(rand[:,label].unsqueeze(1).cpu().numpy(),
                                      orig[:,label].unsqueeze(1).cpu().numpy(),
-                                     pred[:,label].unsqueeze(1).cpu().numpy())
+                                     pred[:,label].unsqueeze(1).cpu().numpy(),
+                                     gred[:,label].unsqueeze(1).cpu().numpy())
+                    print(f'{i_sample}/{args.n_metric} metric written')
 
                     if i_sample % 50 == 0:
                         metricwriter.flush()
