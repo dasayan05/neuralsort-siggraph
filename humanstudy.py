@@ -1,16 +1,10 @@
-import json
+import json, os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from utils import rasterize, to_stroke_list
+from utils import incr_ratserize, to_stroke_list
 
 canvas = plt.figure(frameon=False, figsize=(2.25, 2.25))
-
-with open('1579287746.275986.txt', 'r') as f:
-    Q = json.load(f)
-
-human = Q['human_data']
-ai = Q['ai_data']
 
 def custom_to_npz(human):
     human_x, human_y, human_p = human['clickX'], human['clickY'], human['clickDrag']
@@ -25,17 +19,26 @@ def custom_to_npz(human):
 
     return human
 
-human = to_stroke_list(custom_to_npz(human))
-ai = to_stroke_list(custom_to_npz(ai))
+L = os.listdir('./resources/humanstudy')
 
-# plt.close(canvas)
+for i_sample, file in enumerate(L):
+    with open(os.path.join('./resources/humanstudy', file), 'r') as f:
+        Q = json.load(f)
 
-human_r = rasterize(human, canvas)
-ai_r = rasterize(ai, canvas)
+    human = Q['human_data']
+    ai = Q['ai_data']
 
-fig, ax = plt.subplots(1, 2)
-ax[0].imshow(human_r, cmap='gray')
-ax[1].imshow(ai_r, cmap='gray')
+    human = to_stroke_list(custom_to_npz(human))
+    # ai = to_stroke_list(custom_to_npz(ai))
 
-plt.show()
-plt.close()
+    human_r = incr_ratserize(human, canvas, coarse=6)
+    # ai_r = incr_ratserize(ai, canvas)
+
+    os.mkdir(f'resources/sample{i_sample}')
+    # os.mkdir(f'resources/sample{i_sample}/human')
+    # os.mkdir(f'resources/sample{i_sample}/ai')
+    
+    for i, b in enumerate(human_r):
+        plt.imsave(os.path.join(f'resources/sample{i_sample}', f'{i}.png'), b.squeeze(), cmap='gray')
+    # for i, b in enumerate(ai_r):
+    #     plt.imsave(os.path.join(f'resources/sample{i_sample}/ai', f'{i}.png'), b.squeeze())
