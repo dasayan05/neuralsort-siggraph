@@ -28,7 +28,7 @@ def main( args ):
     qdtrain, qdtest = qd.split(0.8)
     qdltrain, qdltest = qdtrain.get_dataloader(args.batch_size), qdtest.get_dataloader(args.batch_size)
 
-    model = SketchANet(6)
+    model = SketchANet(len(chosen_classes))
     # sched = torch.optim.lr_scheduler.StepLR(optim, step_size=5, gamma=0.8)
 
     # Tensorboard stuff
