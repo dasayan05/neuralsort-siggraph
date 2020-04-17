@@ -94,9 +94,9 @@ def greedy(stroke_list, classifier, label, fig, device):
 
 
 def main( args ):
-    all_classes = [ 'cat', 'face', 'bicycle', 'binoculars', 'cake', 'guitar', 'windmill',
-                       'piano', 'calculator', 'bird', 'book', 'rifle', 'computer', 'cookie',
-                       'butterfly', 'flower', 'owl', 'pineapple', 'shoe', 'truck'] # to 25
+    all_classes = [ 'book', 'cat', 'chandelier', 'computer', 'cruise ship', 'face', 'flower', 'pineapple', 'sun',
+                    'bicycle', 'binoculars', 'birthday cake', 'guitar', 'windmill', 'piano', 'calculator', 'cow',
+                    'truck', 'butterfly', 'mosquito' ]
     
     clf_classes = subset(all_classes, args.clf_classes)
     sort_classes = subset(all_classes, args.sort_classes)

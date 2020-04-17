@@ -8,13 +8,10 @@ from utils import rasterize, accept_withinfg_strokes
 from utils import listofindex, subset
 
 def main( args ):
-    all_classes = [ 'cat', 'face', 'bicycle', 'binoculars', 'cake', 'guitar', 'windmill',
-                       'piano', 'calculator', 'bird', 'book', 'rifle', 'computer', 'cookie',
-                       'butterfly', 'flower', 'owl', 'pineapple', 'shoe', 'truck'] # to 25
-
-   # 'ceiling fan', 'coffee cup', 'fish', 'stethoscope', 'dolphin',
-   # 'candle', 'fork', 'golf club', 'butterfly', 'ice cream', 'key', 'knife',
-   # 'hot air balloon', 'teapot', 'cactus', 'rifle', 'toothbrush', 'shoe', 'octopus', 'traffic light' ]
+    all_classes = [ 'book', 'cat', 'chandelier', 'computer', 'cruise ship', 'face', 'flower', 'pineapple', 'sun',
+                    'bicycle', 'binoculars', 'birthday cake', 'guitar', 'windmill', 'piano', 'calculator', 'cow',
+                    'truck', 'butterfly', 'mosquito' ]
+    
     chosen_classes = subset(all_classes, args.clf_classes)
     qd = QuickDraw(args.root, categories=chosen_classes, max_sketches_each_cat=args.max_sketches_each_cat, verbose=True,
         normalize_xy=False, mode=QuickDraw.STROKESET, filter_func=lambda s: accept_withinfg_strokes(s, args.min_strokes, args.max_strokes), npz=args.npz)
