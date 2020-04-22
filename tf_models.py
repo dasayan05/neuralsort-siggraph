@@ -36,9 +36,6 @@ def SketchANet(num_classes=10):
 
     model.add(Flatten())
 
-    model.add(Dense(256))
-    model.add(LeakyReLU(0.01))
-
     model.add(Dense(num_classes, activation='softmax'))
 
     model.compile(loss=keras.losses.categorical_crossentropy,
