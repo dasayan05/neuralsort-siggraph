@@ -34,7 +34,7 @@ class SketchANet(torch.nn.Module):
         x = x.view(-1, 512)
         
         if feature:
-            return x
+            return F.leaky_relu(self.linear1(x))
         else:
             return self.linear2(F.leaky_relu(self.linear1(x)))
 
