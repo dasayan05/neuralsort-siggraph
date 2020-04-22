@@ -17,8 +17,7 @@ class SketchANet(torch.nn.Module):
         self.conv6 = torch.nn.Conv2d(256, 512, (7, 7), stride=1, padding=0)
         self.conv7 = torch.nn.Conv2d(512, 512, (1, 1), stride=1, padding=0)
 
-        self.linear1 = torch.nn.Linear(512, 256)
-        self.linear2 = torch.nn.Linear(256, self.num_classes)
+        self.linear = torch.nn.Linear(512, self.num_classes)
 
     def forward(self, x, feature=False):
         x = F.leaky_relu(self.conv1(x))
@@ -34,9 +33,9 @@ class SketchANet(torch.nn.Module):
         x = x.view(-1, 512)
         
         if feature:
-            return F.leaky_relu(self.linear1(x))
+            return x
         else:
-            return self.linear2(F.leaky_relu(self.linear1(x)))
+            return self.linear(x)
 
 class Embedder(object):
     def __init__(self, encoder, sketch, device):
