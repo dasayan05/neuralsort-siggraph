@@ -60,6 +60,13 @@ def prerender_stroke(stroke_list, fig, xlim=[0,255], ylim=[0,255]):
     # breakpoint()
     return torch.stack(R, 0)
 
+def prerender_group(groups, fig, xlim=[0,255], ylim=[0,255]):
+    R = []
+    for stroke in groups:
+        R.append( torch.tensor(rasterize(stroke, fig, xlim, ylim)).unsqueeze(0) )
+    # breakpoint()
+    return torch.stack(R, 0)
+
 def incr_ratserize(stroke_list, fig, xlim=[0,255], ylim=[0,255], coarse=2):
     R = []
     incomplete_sketch = []
@@ -86,3 +93,31 @@ def subset(l, inds):
     for i in inds:
         ll.append(l[i])
     return ll
+
+def stroke_grouping(stroke_list, num_groups=5):
+    n_strokes = len(stroke_list)
+    if n_strokes <= num_groups:
+        n_stroke_per_group = 1
+    else:
+        if n_strokes % num_groups == 0:
+            n_stroke_per_group = n_strokes // num_groups
+        else:
+            n_stroke_per_group = (n_strokes // num_groups) + 1
+    groups = []
+    i = 0
+    for g in range(num_groups):
+        if stroke_list[i:i+n_stroke_per_group].__len__() != 0:
+            groups.append( stroke_list[i:i+n_stroke_per_group] )
+            i += n_stroke_per_group
+    if i <= n_strokes - 1:
+        groups[-1].extend(stroke_list[i:])
+    return groups
+
+binary_xor = lambda a, b: (a.type(torch.uint8) ^ b.type(torch.uint8)).type(torch.float32)
+
+def render_perm(rG, perm):
+    R = [rG[perm[0]],]
+    for p in perm[1:]:
+        R.append(binary_xor(rG[p], R[-1]))
+    R = torch.stack(R, 0)
+    return R

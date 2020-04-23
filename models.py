@@ -28,8 +28,12 @@ class SketchANet(torch.nn.Module):
         x = F.leaky_relu(self.conv4(x))
         x = F.leaky_relu(self.conv5(x))
         x = F.max_pool2d(x, (3, 3), stride=2)
-        x = F.dropout(F.leaky_relu(self.conv6(x)))
-        x = F.dropout(F.leaky_relu(self.conv7(x)))
+        if self.training:
+            x = F.dropout(F.leaky_relu(self.conv6(x)))
+            x = F.dropout(F.leaky_relu(self.conv7(x)))
+        else:
+            x = F.leaky_relu(self.conv6(x))
+            x = F.leaky_relu(self.conv7(x))
         x = x.view(-1, 512)
         
         if feature:
