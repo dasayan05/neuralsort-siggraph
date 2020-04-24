@@ -72,7 +72,7 @@ def main( args ):
         print(f'[Testing] -/{e}/{args.epochs} -> Accuracy: {accuracy} %')
         writer.add_scalar('test-accuracy', accuracy/100., e)
         if accuracy > best_acc:
-            model.save(os.path.join(args.base, args.modelname + '.h5'), save_format='h5', include_optimizer=False)
+            model.save(os.path.join(args.base, f'e{e}_' + args.modelname + '.h5'), save_format='h5', include_optimizer=False)
             best_acc = accuracy
 
 if __name__ == '__main__':
