@@ -49,7 +49,8 @@ def main( args ):
         N = rendered_G.shape[0] # mostly 'args.group, sometimes 'args.group - 1'
         for ip, perm in enumerate(itertools.permutations(list(range(N)))):
             permed_G = render_perm(rendered_G, perm)
-            preds = torch.softmax(model(permed_G), 1)
+            with torch.no_grad():
+                preds = torch.softmax(model(permed_G), 1)
             efe = preds[:,args.category].detach().cpu().numpy().mean() # Early recognition efficacy
             if efe > max_efe:
                 max_efe = efe; best_perm = perm
