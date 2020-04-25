@@ -28,16 +28,16 @@ def SketchANet(num_classes=10):
 
     model.add(Conv2D(512, (7, 7), 1, padding='valid'))
     model.add(LeakyReLU(0.01))
-    model.add(SpatialDropout2D(0.5, data_format='channels_first'))
+    # model.add(SpatialDropout2D(0.5, data_format='channels_first'))
 
     model.add(Conv2D(512, (1, 1), 1, padding='valid'))
     model.add(LeakyReLU(0.01))
-    model.add(SpatialDropout2D(0.5, data_format='channels_first'))
+    # model.add(SpatialDropout2D(0.5, data_format='channels_first'))
 
     model.add(Flatten())
 
-    model.add(Dense(256, activation=LeakyReLU(0.01)))
-    model.add(Dropout(0.5))
+    # model.add(Dense(256, activation=LeakyReLU(0.01)))
+    # model.add(Dropout(0.5))
 
     model.add(Dense(num_classes, activation='softmax'))
 
