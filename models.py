@@ -74,6 +74,6 @@ class ScoreFunction(nn.Module):
         self.l3 = nn.Linear(128, 1)
 
     def forward(self, x):
-        x = F.relu(self.l1(x))
-        x = F.relu(self.l2(x))
+        x = F.leaky_relu(self.l1(x))
+        x = F.leaky_relu(self.l2(x))
         return torch.sigmoid(self.l3(x))
