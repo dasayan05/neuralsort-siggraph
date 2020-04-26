@@ -17,7 +17,8 @@ class SketchANet(torch.nn.Module):
         self.conv6 = torch.nn.Conv2d(256, 512, (7, 7), stride=1, padding=0)
         self.conv7 = torch.nn.Conv2d(512, 512, (1, 1), stride=1, padding=0)
 
-        self.linear = torch.nn.Linear(512, self.num_classes)
+        self.linear1 = torch.nn.Linear(512, 256)
+        self.linear2 = torch.nn.Linear(256, self.num_classes)
 
     def forward(self, x, feature=False):
         x = F.relu(self.conv1(x))
@@ -29,8 +30,8 @@ class SketchANet(torch.nn.Module):
         x = F.relu(self.conv5(x))
         x = F.max_pool2d(x, (3, 3), stride=2)
         if self.training:
-            x = F.dropout(F.relu(self.conv6(x)))
-            x = F.dropout(F.relu(self.conv7(x)))
+            x = F.dropout2d(F.relu(self.conv6(x)))
+            x = F.dropout2d(F.relu(self.conv7(x)))
         else:
             x = F.relu(self.conv6(x))
             x = F.relu(self.conv7(x))
@@ -39,7 +40,7 @@ class SketchANet(torch.nn.Module):
         if feature:
             return x
         else:
-            return self.linear(x)
+            return self.linear2(F.relu(self.linear1(x)))
 
 class Embedder(object):
     def __init__(self, encoder, sketch, device):
