@@ -20,16 +20,16 @@ class SketchANet(torch.nn.Module):
         self.linear = torch.nn.Linear(512, self.num_classes)
 
     def forward(self, x, feature=False):
-        x = F.leaky_relu(self.conv1(x))
+        x = F.relu(self.conv1(x))
         x = F.max_pool2d(x, (3, 3), stride=2)
-        x = F.leaky_relu(self.conv2(x))
+        x = F.relu(self.conv2(x))
         x = F.max_pool2d(x, (3, 3), stride=2)
-        x = F.leaky_relu(self.conv3(x))
-        x = F.leaky_relu(self.conv4(x))
-        x = F.leaky_relu(self.conv5(x))
+        x = F.relu(self.conv3(x))
+        x = F.relu(self.conv4(x))
+        x = F.relu(self.conv5(x))
         x = F.max_pool2d(x, (3, 3), stride=2)
-        x = F.leaky_relu(self.conv6(x))
-        x = F.leaky_relu(self.conv7(x))
+        x = F.dropout(F.relu(self.conv6(x)))
+        x = F.dropout(F.relu(self.conv7(x)))
         x = x.view(-1, 512)
         
         if feature:
@@ -74,6 +74,6 @@ class ScoreFunction(nn.Module):
         self.l3 = nn.Linear(128, 1)
 
     def forward(self, x):
-        x = F.leaky_relu(self.l1(x))
-        x = F.leaky_relu(self.l2(x))
+        x = F.relu(self.l1(x))
+        x = F.relu(self.l2(x))
         return torch.sigmoid(self.l3(x))
