@@ -1,4 +1,4 @@
-# Neural Sort
+# [Pixelor: A Competitive Sketching AI Agent. So you think you can beat me?](https://dasayan05.github.io/pubs/2020/07/30/pub-8.html)
 
 ## SIGGRAPH Asia 2020 paper code
 
@@ -11,7 +11,7 @@ The following code is for the "Neural Sorting" model of the paper:
 
 For more information, visit the project page:
 
-### [Pixelor: A Competitive Sketching AI Agent. So you think you can beat me?](https://dasayan05.github.io/pubs/2020/07/30/pub-8.html)
+### [Project "Pixelor"](http://sketchx.ai/pixelor)
 
 The "Geneartive Model" part of the project can be found here:
 
